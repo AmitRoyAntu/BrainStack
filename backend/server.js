@@ -172,7 +172,8 @@ app.post('/api/ai/global-chat', checkAuth, async (req, res) => {
         if (notesRes.rows.length === 0) notesRes = await pool.query('SELECT title, notes_markdown as content FROM entries WHERE user_id = $1 ORDER BY updated_at DESC LIMIT 10', [userId]);
 
         const context = notesRes.rows.map(n => `Title: ${n.title}\nContent: ${n.content}`).join('\n\n---\n\n');
-        const messages = [{ role: "system", content: `You are "BrainStack AI", a professional learning assistant. Use the user's notes below to answer. Amit is the user. FORMATTING: Use standard Markdown (# Header, ## Section). ALWAYS space after #. Bullet points for lists. Code blocks for technical details.\n\nNOTES CONTEXT:\n${context}` }];
+        const messages = [{ role: "system", content: `You are "BrainStack AI", a professional learning assistant. Use the user's notes below to answer questions. FORMATTING: Use standard Markdown (# Header, ## Section). ALWAYS space after #. Bullet points for lists. Code blocks for technical details.\n\nNOTES CONTEXT:\n${context}` }];
+
         if (history) history.slice(-6).forEach(msg => messages.push({ role: msg.role, content: msg.content }));
         messages.push({ role: "user", content: message });
 
