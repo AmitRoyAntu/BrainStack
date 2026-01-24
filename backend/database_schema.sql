@@ -1,4 +1,12 @@
--- 1. USERS TABLE
+-- 1. CLEANUP (Ensures a fresh start)
+DROP TABLE IF EXISTS entry_tags CASCADE;
+DROP TABLE IF EXISTS resources CASCADE;
+DROP TABLE IF EXISTS entries CASCADE;
+DROP TABLE IF EXISTS tags CASCADE;
+DROP TABLE IF EXISTS categories CASCADE;
+DROP TABLE IF EXISTS users CASCADE;
+
+-- 2. CREATE TABLES
 CREATE TABLE users (
     user_id SERIAL PRIMARY KEY,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -8,7 +16,6 @@ CREATE TABLE users (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 2. CATEGORIES TABLE
 CREATE TABLE categories (
     category_id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
@@ -17,24 +24,20 @@ CREATE TABLE categories (
     UNIQUE(user_id, name)
 );
 
--- 3. ENTRIES TABLE
 CREATE TABLE entries (
     entry_id SERIAL PRIMARY KEY,
     user_id INT REFERENCES users(user_id) ON DELETE CASCADE,
     category_id INT REFERENCES categories(category_id) ON DELETE SET NULL,
-    
     title VARCHAR(255) NOT NULL,
     notes_markdown TEXT,
     difficulty_level INT DEFAULT 1,
     needs_revision BOOLEAN DEFAULT FALSE,
-    
     learning_date DATE NOT NULL,
-    
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. RESOURCES TABLE (Links)
+-- 5. RESOURCES TABLE (Links)
 CREATE TABLE resources (
     resource_id SERIAL PRIMARY KEY,
     entry_id INT REFERENCES entries(entry_id) ON DELETE CASCADE,
@@ -42,7 +45,7 @@ CREATE TABLE resources (
     title VARCHAR(255)
 );
 
--- 5. TAGS SYSTEM
+-- 6. TAGS SYSTEM
 CREATE TABLE tags (
     tag_id SERIAL PRIMARY KEY,
     name VARCHAR(50) UNIQUE NOT NULL

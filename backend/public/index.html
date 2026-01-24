@@ -6,9 +6,70 @@
     <title>BrainStack</title>
     <link rel="stylesheet" href="style.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
+    <!-- Landing Page Section -->
+    <div id="landing-page" class="hidden">
+      <nav class="landing-nav">
+        <div class="logo">🧠 BrainStack</div>
+        <button class="btn-login-nav" onclick="showLogin()">Sign In</button>
+      </nav>
+
+      <header class="hero-section">
+        <div class="hero-content">
+          <h1>Your Second Brain for <span class="highlight">Deep Learning</span></h1>
+          <p>The professional knowledge management system designed to track what you learn, organize notes via Markdown, and chat with your AI assistant.</p>
+          <div class="hero-btns">
+            <button class="btn-hero-pri" onclick="showLogin()">Get Started for Free</button>
+            <a href="#features" class="btn-hero-sec">Explore Features</a>
+          </div>
+        </div>
+        <div class="hero-visual">
+            <div class="visual-card">
+                <div class="visual-line" style="width: 80%;"></div>
+                <div class="visual-line" style="width: 60%;"></div>
+                <div class="visual-line" style="width: 90%;"></div>
+                <div class="visual-ai-badge">🤖 AI Active</div>
+            </div>
+        </div>
+      </header>
+
+      <section id="features" class="features-section">
+        <div class="feature-card">
+          <div class="feature-icon">🤖</div>
+          <h3>AI Assistant</h3>
+          <p>Chat with your entire note library using our context-aware Llama 3 assistant.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📊</div>
+          <h3>Visual Analytics</h3>
+          <p>Track your progress with professional charts and GitHub-style consistency heatmaps.</p>
+        </div>
+        <div class="feature-card">
+          <div class="feature-icon">📂</div>
+          <h3>Structured Library</h3>
+          <p>Organize everything with categories, tags, and powerful server-side search.</p>
+        </div>
+      </section>
+
+      <section class="services-section">
+          <h2>Everything you need to <span class="highlight">master</span> any topic</h2>
+          <div class="service-list">
+              <div class="service-item">✓ Markdown Editor with Live Preview</div>
+              <div class="service-item">✓ One-Click Code Copying</div>
+              <div class="service-item">✓ Flashcard Revision Center</div>
+              <div class="service-item">✓ Full JSON Data Portability</div>
+          </div>
+      </section>
+
+      <footer class="landing-footer">
+        <p>&copy; 2026 BrainStack. Built for the curious. 🌱</p>
+      </footer>
+    </div>
+
     <div class="app-container">
+
       <aside class="sidebar">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
           <div class="logo">🧠 BrainStack</div>
@@ -26,7 +87,13 @@
             <span id="side-status" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">Syncing profile...</span>
           </div>
         </div>
+        <button onclick="logout()" style="margin: 15px 20px; background: #fee2e2; border: 1px solid #fecaca; padding: 10px; border-radius: 10px; cursor: pointer; color: #ef4444; font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; justify-content: center;">
+          Sign Out
+        </button>
+
+
       </aside>
+
 
       <main class="main-content">
         
@@ -37,8 +104,18 @@
             <input type="text" id="globalSearch" placeholder="Search notes (Cmd+K)..." />
             <button id="search-clear" class="hidden" onclick="clearSearch()">✕</button>
           </div>
-          <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+          
+          <div class="theme-switch-wrapper" title="Toggle Light/Dark Mode">
+            <label class="theme-switch" for="checkbox">
+                <input type="checkbox" id="checkbox" onclick="toggleTheme()" />
+                <div class="slider round">
+                    <span class="sun">☀️</span>
+                    <span class="moon">🌙</span>
+                </div>
+            </label>
+          </div>
         </header>
+
 
         <section id="view-dashboard" class="view active">
           <h2 style="margin-bottom: 25px;">Dashboard</h2>
@@ -62,16 +139,39 @@
           <!-- Charts Section -->
           <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:25px; margin-bottom:40px;">
               <div class="card" style="padding: 25px;">
-                  <h3 style="margin-bottom: 15px; font-size: 1.1rem;">📊 Difficulty Spread</h3>
-                  <div id="chart-difficulty" class="simple-chart" style="height: 180px;"></div>
+                  <h3 style="margin-bottom: 15px; font-size: 1.1rem;">📊 Category Distribution</h3>
+                  <div style="height: 250px; display: flex; justify-content: center;">
+                    <canvas id="chart-category"></canvas>
+                  </div>
               </div>
               <div class="card" style="padding: 25px;">
-                  <h3 style="margin-bottom: 15px; font-size: 1.1rem;">📅 Top Categories</h3>
-                  <div id="chart-category" class="simple-chart" style="height: 180px;"></div>
+                  <h3 style="margin-bottom: 15px; font-size: 1.1rem;">📈 Learning Activity (7 Days)</h3>
+                  <div style="height: 250px;">
+                    <canvas id="chart-activity"></canvas>
+                  </div>
+              </div>
+          </div>
+
+
+          <!-- Heatmap Section -->
+          <div class="card" style="padding: 25px; margin-bottom: 40px;">
+              <h3 style="margin-bottom: 20px; font-size: 1.1rem;">🔥 Learning Consistency</h3>
+              <div class="heatmap-wrapper">
+                  <div id="heatmap-grid" class="heatmap-grid"></div>
+              </div>
+              <div class="heatmap-legend" style="display: flex; gap: 5px; align-items: center; justify-content: flex-end; margin-top: 10px; font-size: 0.75rem; color: var(--text-muted);">
+                  <span>Less</span>
+                  <div class="h-cell level-0"></div>
+                  <div class="h-cell level-1"></div>
+                  <div class="h-cell level-2"></div>
+                  <div class="h-cell level-3"></div>
+                  <div class="h-cell level-4"></div>
+                  <span>More</span>
               </div>
           </div>
 
           <!-- Recent Activity -->
+
           <h3 style="margin-bottom: 20px; font-size: 1.2rem;">Recent Activity</h3>
           <div id="recent-list" class="list-group" style="display: grid; gap: 15px;"></div>
         </section>
@@ -86,7 +186,7 @@
             </div>
             <div style="display:flex; align-items:center; gap:8px;">
               <span style="font-size:0.85rem; font-weight:600; color:var(--text-muted);">⭐ Difficulty:</span>
-              <select id="filter-difficulty" onchange="renderLibrary()" style="width:auto; min-width:140px; margin:0; padding:8px; font-size:0.9rem;">
+              <select id="filter-difficulty" onchange="fetchEntries(true)" style="width:auto; min-width:140px; margin:0; padding:8px; font-size:0.9rem;">
                 <option value="">Any Difficulty</option>
                 <option value="1">1 - Beginner</option>
                 <option value="2">2 - Easy</option>
@@ -96,19 +196,31 @@
               </select>
             </div>
             <button class="btn-xs" onclick="resetFilters()" style="margin-left:auto; color:var(--primary); background:none; border:1px solid var(--primary); padding:5px 10px; border-radius:6px; cursor:pointer;">Reset All</button>
+
+
           </div>
           <div id="library-list" class="card-grid"></div>
           
-          <div style="text-align: center; margin: 30px 0;">
-            <button id="btn-load-more" class="btn-sec hidden" onclick="loadMoreEntries()">Load More</button>
+          <!-- Pagination Bar -->
+          <div id="pagination-bar" class="pagination-bar hidden">
+            <button id="btn-prev" class="btn-sec" onclick="changePage(-1)">← Previous</button>
+            <span id="page-info" class="page-info">Page 1 of 1</span>
+            <button id="btn-next" class="btn-sec" onclick="changePage(1)">Next →</button>
           </div>
         </section>
 
-        <section id="view-settings" class="view hidden">
-          <div style="max-width: 600px; margin: 0 auto;">
-            <h2 style="margin-bottom: 25px; text-align: center;">Profile & Settings</h2>
+
+        <section id="view-settings" class="view hidden" style="padding: 20px; position: relative;">
+          <!-- Mobile Toggle for Settings -->
+          <button class="mobile-toggle" onclick="toggleSidebar()" style="position: absolute; top: 20px; left: 20px;">☰</button>
+          
+          <div style="width: 100%; max-width: 600px; margin: 60px auto auto auto;">
+            <h2 style="margin-bottom: 35px; text-align: center; font-size: 2rem; font-weight: 700;">Profile & Settings</h2>
+
             
-            <div style="display: grid; gap: 30px;">
+            <div style="display: grid; gap: 30px; width: 100%;">
+
+
               
               <!-- Profile Info Section -->
               <div class="card" style="padding: 30px; text-align: left;">
@@ -178,8 +290,10 @@
         </section>
 
         <section id="view-add" class="view hidden">
-          <div style="max-width: 800px; margin: 0 auto;">
+          <div style="max-width: 800px; margin: 0 auto; position: relative;">
+            <button class="mobile-toggle" onclick="toggleSidebar()" style="position: absolute; top: 0; right: 0;">☰</button>
             <button class="btn-sec" onclick="goBack()" style="margin-bottom: 25px">← Back</button>
+
             <h2 id="view-add-title" style="margin-bottom: 25px;">Add New Learning</h2>
             
             <form id="add-form" class="card" style="padding: 30px;">
@@ -268,9 +382,13 @@
 
         <section id="view-revision" class="view hidden">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px;">
-            <h2>⚡ Revision Center</h2>
+            <div style="display: flex; align-items: center; gap: 15px;">
+              <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+              <h2>⚡ Revision Center</h2>
+            </div>
             <button class="btn-sec" onclick="router('dashboard')">Exit</button>
           </div>
+
           
           <div id="revision-list-container">
             <div class="card" style="margin-bottom: 25px; padding: 25px; display: flex; justify-content: space-between; align-items: center; background: var(--primary-light); border: none;">
@@ -287,30 +405,31 @@
 
           <div id="revision-session-container" class="hidden">
             <div style="text-align: center; margin-bottom: 25px;">
-              <span id="rev-progress" style="font-size: 0.9rem; color: var(--text-muted);">Card 1 of 5</span>
+              <span id="rev-progress" style="font-size: 0.85rem; font-weight: 600; letter-spacing: 1px; color: var(--text-muted); background: var(--bg); padding: 6px 15px; border-radius: 20px; border: 1px solid var(--border);">CARD 1 OF 5</span>
             </div>
 
-            <div id="flashcard-container" class="card flashcard" style="max-width: 600px; margin: 0 auto; padding: 40px; min-height: 450px; border-radius: 20px;">
+            <div id="flashcard-container" class="card flashcard" style="border-radius: 24px;">
                <div class="fc-front">
-                  <span class="badge" id="fc-category" style="background: white; border: 1px solid var(--border);">Category</span>
-                  <h2 id="fc-title" style="margin: 30px 0; font-size: 2.2rem; color: var(--primary);">Title</h2>
+                  <span class="badge fc-category-badge" id="fc-category">Category</span>
+                  <h2 id="fc-title" class="fc-title-text" style="color: var(--primary);">Title</h2>
                   <div id="fc-tags" class="tag-list" style="justify-content:center; border:none; background:transparent;"></div>
-                  <p style="color: var(--text-muted); margin-top: 40px; font-style: italic;">(Tap anywhere to reveal notes)</p>
+                  <p style="color: var(--text-muted); margin-top: 50px; font-size: 0.9rem; font-style: italic;">Tap card to reveal notes</p>
                </div>
                <div class="fc-back hidden">
-                  <div id="fc-content" class="markdown-body" style="text-align:left; max-height: 350px; overflow-y: auto; padding-right: 10px;"></div>
+                  <div id="fc-content" class="markdown-body"></div>
                </div>
             </div>
 
-            <div id="fc-controls" class="action-row hidden" style="justify-content: center; gap: 15px; margin-top: 35px;">
-               <button class="btn-sec" onclick="processRevision(true)" style="padding: 12px 30px;">↺ Keep Reviewing</button>
-               <button class="btn-pri" onclick="processRevision(false)" style="background: #10b981; padding: 12px 30px;">✓ Mastered</button>
+            <div id="fc-controls" class="fc-controls-container hidden">
+               <button class="btn-pri btn-keep" onclick="processRevision(true)" style="padding: 15px 40px;">↺ Keep Reviewing</button>
+               <button class="btn-pri btn-mastered" onclick="processRevision(false)" style="padding: 15px 40px;">✓ Mastered</button>
             </div>
             
-            <div style="text-align: center; margin-top: 25px;">
-              <button class="btn-sec" onclick="exitSession()" style="border: none;">Cancel Session</button>
+            <div style="text-align: center; margin-top: 40px;">
+              <button class="btn-sec" onclick="exitSession()" style="border: none; font-size: 0.9rem;">Cancel Session</button>
             </div>
           </div>
+
 
           <div id="revision-empty" class="hidden" style="text-align: center; padding: 80px 20px;">
              <div style="font-size: 4rem; margin-bottom: 20px;">🎉</div>
@@ -321,7 +440,11 @@
         </section>
 
         <section id="view-details" class="view hidden">
-          <button class="btn-sec" onclick="router('library')" style="margin-bottom: 20px">← Back to Library</button>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <button class="btn-sec" onclick="router('library')">← Back to Library</button>
+            <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+          </div>
+
 
           <div class="card detail-card">
             <header class="detail-header">
@@ -357,18 +480,68 @@
       <p style="margin-top: 15px; font-weight: 500;">Syncing with BrainStack...</p>
     </div>
 
-    <div id="pin-overlay" class="hidden">
-      <div class="card" style="width: 100%; max-width: 320px; text-align: center; padding: 40px 30px;">
-        <div style="font-size: 3rem; margin-bottom: 20px;">🔒</div>
-        <h2 style="margin-bottom: 10px;">BrainStack Locked</h2>
-        <p style="color: var(--text-muted); margin-bottom: 25px; font-size: 0.9rem;">Enter your global PIN to access your notes.</p>
-        <input type="password" id="pin-input" placeholder="••••••" maxlength="6" style="text-align: center; font-size: 1.5rem; letter-spacing: 8px; margin-bottom: 20px;" autofocus />
-        <button class="btn-pri" onclick="verifyPin()" style="width: 100%;">Unlock</button>
-        <p id="pin-error" class="hidden" style="color: #ef4444; font-size: 0.85rem; margin-top: 15px;">❌ Invalid PIN. Try again.</p>
+    <!-- Login Overlay -->
+    <div id="login-overlay" class="hidden">
+
+      <div class="login-card">
+        <h2>Welcome Back</h2>
+        <p>Your Second Brain is ready for you.</p>
+        
+        <form onsubmit="event.preventDefault(); loginUser();">
+            <div class="login-input-group">
+                <label>Email Address</label>
+                <input type="email" id="login-email" placeholder="name@example.com" required autofocus />
+            </div>
+            
+            <div class="login-input-group">
+                <label>Password</label>
+                <input type="password" id="login-pass" placeholder="••••••••" required />
+            </div>
+
+            <button type="submit" class="btn-login" id="btn-login">Sign In</button>
+        </form>
+        
+        <button onclick="hideLogin()" class="btn-back" style="background: none; border: none; cursor: pointer; font-size: 0.9rem;">← Back to Home</button>
+
+        
+        <p id="login-error" class="hidden" style="color: #ef4444; font-size: 0.85rem; margin-top: 20px; font-weight: 600;">❌ Invalid credentials</p>
+
       </div>
     </div>
 
+
+
+    <!-- AI Assistant Floating Button -->
+    <button class="ai-fab" onclick="toggleAIChat()" title="Ask BrainStack AI">
+        <span>🤖</span>
+    </button>
+
+        <!-- AI Assistant Panel -->
+
+        <div id="ai-panel" class="ai-panel hidden">
+
+            <div id="ai-resize-handle" class="ai-resize-handle"></div>
+
+            <div class="ai-panel-header">
+
+                <button onclick="toggleAIChat()" class="btn-xs" style="color:white; border:none; font-size:1.5rem; background:none; cursor:pointer;">✕</button>
+
+                <h3>BrainStack AI 🤖</h3>
+
+            </div>
+
+    
+        <div id="ai-messages" class="ai-messages">
+            <div class="ai-bubble bot">Hi Amit! I've read all your notes. How can I help you today?</div>
+        </div>
+        <form class="ai-input-area" onsubmit="event.preventDefault(); sendAIMessage();">
+            <input type="text" id="ai-input" placeholder="Ask your brain..." autocomplete="off" />
+            <button type="submit">↑</button>
+        </form>
+    </div>
+
     <div id="toast-container"></div>
+
     <script src="app.js"></script>
   </body>
 </html>
