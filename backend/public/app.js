@@ -158,6 +158,22 @@ window.router = function(viewName) {
     _router(viewName);
 };
 
+// Navigation Guard
+function hasUnsavedChanges() {
+    const title = document.getElementById('inp-title')?.value;
+    const notes = document.getElementById('inp-notes')?.value;
+    const isAdding = document.querySelector('.view.active')?.id === 'view-add';
+    return isAdding && (title || notes);
+}
+
+const originalRouter = router;
+window.router = function(viewName) {
+    if (hasUnsavedChanges() && !confirm("You have unsaved changes. Discard them?")) {
+        return;
+    }
+    _router(viewName);
+};
+
 function getTodayString() { return new Date().toLocaleDateString('en-CA'); }
 window.goBack = function() { router(lastView || 'dashboard'); };
 window.toggleSidebar = function() {
@@ -1169,6 +1185,11 @@ window.copyCode = function(btn) {
 };
 
 window.toggleAIChat = function() { const p = document.getElementById('ai-panel'); p.classList.toggle('hidden'); if (!p.classList.contains('hidden')) { document.getElementById('ai-input').focus(); initAIResize(); } };
+window.clearChat = function() {
+    chatHistory = [];
+    document.getElementById('ai-messages').innerHTML = '<div class="ai-bubble bot">History cleared. How can I help you now?</div>';
+};
+
 window.sendAIMessage = async function() {
     const input = document.getElementById('ai-input'); 
     const msg = input.value.trim(); 

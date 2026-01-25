@@ -56,3 +56,9 @@ CREATE TABLE entry_tags (
     tag_id INT REFERENCES tags(tag_id) ON DELETE CASCADE,
     PRIMARY KEY (entry_id, tag_id)
 );
+
+-- 7. INDEXES FOR PERFORMANCE
+CREATE INDEX idx_entries_user_updated ON entries(user_id, updated_at DESC);
+CREATE INDEX idx_entries_user_revision ON entries(user_id, needs_revision) WHERE needs_revision = TRUE;
+CREATE INDEX idx_categories_user ON categories(user_id);
+CREATE INDEX idx_entry_tags_entry ON entry_tags(entry_id);
