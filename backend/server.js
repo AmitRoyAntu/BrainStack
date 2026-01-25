@@ -167,16 +167,29 @@ app.get('/api/stats', checkAuth, async (req, res) => {
         const streakRes = await pool.query(`SELECT TO_CHAR(learning_date, 'YYYY-MM-DD') as date FROM entries WHERE user_id = $1 GROUP BY learning_date ORDER BY learning_date DESC`, [uid]);
         
         let streak = 0;
-        const dates = streakRes.rows.map(r => r.date);
-        if (dates.length > 0 && userToday) {
-            let yesterday = new Date(userToday); yesterday.setDate(yesterday.getDate() - 1);
-            let yestStr = yesterday.toISOString().split('T')[0];
-            let check = dates[0] === userToday ? userToday : (dates[0] === yestStr ? yestStr : null);
-            if (check) {
-                streak = 1; let curr = new Date(check);
-                for (let i = dates.indexOf(check) + 1; i < dates.length; i++) {
-                    curr.setDate(curr.getDate()-1);
-                    if (dates[i] === curr.toISOString().split('T')[0]) streak++; else break;
+        const dateSet = new Set(streakRes.rows.map(r => r.date));
+        
+        if (dateSet.size > 0 && userToday) {
+            const fmt = (d) => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+            
+            let curr = new Date(userToday + 'T00:00:00');
+            let yesterday = new Date(curr);
+            yesterday.setDate(yesterday.getDate() - 1);
+            
+            // Start counting from today if exists, otherwise try yesterday to keep streak alive
+            let checkDate = dateSet.has(userToday) ? curr : (dateSet.has(fmt(yesterday)) ? yesterday : null);
+            
+            if (checkDate) {
+                streak = 1;
+                let walk = new Date(checkDate);
+                while (true) {
+                    walk.setDate(walk.getDate() - 1);
+                    let formatted = fmt(walk);
+                    if (dateSet.has(formatted)) {
+                        streak++;
+                    } else {
+                        break;
+                    }
                 }
             }
         }
