@@ -6,14 +6,18 @@
     <title>BrainStack</title>
     <link rel="stylesheet" href="style.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
   <body>
     <!-- Landing Page Section -->
-    <div id="landing-page" class="hidden">
+    <div id="landing-page">
       <nav class="landing-nav">
-        <div class="logo">🧠 BrainStack</div>
-        <button class="btn-login-nav" onclick="showLogin()">Sign In</button>
+        <div class="logo"><span class="iconify" data-icon="lucide:brain" style="color: var(--primary); margin-right: 10px;"></span> BrainStack</div>
+        <div class="nav-actions">
+            <button class="btn-login-nav" onclick="showLogin()">Sign In</button>
+            <button class="btn-hero-pri" onclick="showLogin()" style="padding: 10px 24px; font-size: 1rem;">Get Started</button>
+        </div>
       </nav>
 
       <header class="hero-section">
@@ -21,33 +25,50 @@
           <h1>Your Second Brain for <span class="highlight">Deep Learning</span></h1>
           <p>The professional knowledge management system designed to track what you learn, organize notes via Markdown, and chat with your AI assistant.</p>
           <div class="hero-btns">
-            <button class="btn-hero-pri" onclick="showLogin()">Get Started for Free</button>
+            <button class="btn-hero-pri" onclick="showLogin()">Get Started</button>
             <a href="#features" class="btn-hero-sec">Explore Features</a>
           </div>
         </div>
         <div class="hero-visual">
             <div class="visual-card">
-                <div class="visual-line" style="width: 80%;"></div>
-                <div class="visual-line" style="width: 60%;"></div>
-                <div class="visual-line" style="width: 90%;"></div>
-                <div class="visual-ai-badge">🤖 AI Active</div>
+                <div class="visual-header">
+                    <div class="dots"><span></span><span></span><span></span></div>
+                    <div class="visual-ai-badge"><span class="iconify" data-icon="lucide:sparkles" style="margin-right: 4px;"></span> AI Active</div>
+                </div>
+                <div class="visual-body">
+                    <div class="visual-note-card">
+                        <div class="visual-line short"></div>
+                        <div class="visual-line long"></div>
+                        <div class="visual-line medium"></div>
+                    </div>
+                    <div class="visual-stats-row">
+                        <div class="visual-stat-item"></div>
+                        <div class="visual-stat-item"></div>
+                        <div class="visual-stat-item"></div>
+                    </div>
+                    <div class="visual-code-block">
+                        <div class="visual-line" style="width: 40%; background: #8b5cf6;"></div>
+                        <div class="visual-line" style="width: 70%; background: #6366f1;"></div>
+                        <div class="visual-line" style="width: 50%; background: #8b5cf6;"></div>
+                    </div>
+                </div>
             </div>
         </div>
       </header>
 
       <section id="features" class="features-section">
         <div class="feature-card">
-          <div class="feature-icon">🤖</div>
+          <div class="feature-icon"><span class="iconify" data-icon="lucide:bot" style="color: var(--primary);"></span></div>
           <h3>AI Assistant</h3>
           <p>Chat with your entire note library using our context-aware Llama 3 assistant.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">📊</div>
+          <div class="feature-icon"><span class="iconify" data-icon="lucide:bar-chart-3" style="color: var(--primary);"></span></div>
           <h3>Visual Analytics</h3>
           <p>Track your progress with professional charts and GitHub-style consistency heatmaps.</p>
         </div>
         <div class="feature-card">
-          <div class="feature-icon">📂</div>
+          <div class="feature-icon"><span class="iconify" data-icon="lucide:folder-open" style="color: var(--primary);"></span></div>
           <h3>Structured Library</h3>
           <p>Organize everything with categories, tags, and powerful server-side search.</p>
         </div>
@@ -68,84 +89,99 @@
       </footer>
     </div>
 
-    <div class="app-container">
+    <div class="app-container hidden">
 
       <aside class="sidebar">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-          <div class="logo">🧠 BrainStack</div>
-          <button class="mobile-close" onclick="toggleSidebar()">✕</button>
+        <div class="sidebar-header">
+          <div class="logo"><span class="iconify" data-icon="lucide:brain" style="color: var(--primary); margin-right: 8px;"></span> BrainStack</div>
+          <button class="mobile-toggle" onclick="toggleSidebar()"><span class="iconify" data-icon="lucide:panel-left"></span></button>
         </div>
-        <nav>
-          <button class="nav-btn active" data-target="dashboard" onclick="router('dashboard')">🏠 Dashboard</button>
-          <button class="nav-btn" data-target="add" onclick="resetAddForm()">✍️ Add Entry</button>
-          <button class="nav-btn" data-target="library" onclick="router('library')">📚 Library</button>
+        <nav id="dynamic-nav">
+          <!-- Dynamic Content -->
         </nav>
         <div class="user-profile" onclick="router('settings')" title="Go to Settings">
           <div class="avatar" id="side-avatar">..</div>
-          <div style="display: flex; flex-direction: column; align-items: center;">
-            <span id="side-name" style="font-weight: 600; font-size: 0.85rem;">Loading...</span>
-            <span id="side-status" style="font-size: 0.7rem; color: var(--text-muted); margin-top: 2px;">Syncing profile...</span>
+          <div class="profile-details">
+            <span id="side-name" class="profile-name">Loading...</span>
+            <span id="side-status" class="profile-role">Syncing...</span>
           </div>
         </div>
-        <button onclick="logout()" style="margin: 15px 20px; background: #fee2e2; border: 1px solid #fecaca; padding: 10px; border-radius: 10px; cursor: pointer; color: #ef4444; font-size: 0.9rem; font-weight: 600; display: flex; align-items: center; justify-content: center;">
-          Sign Out
+        <button class="btn-logout-sidebar" onclick="logout()" title="Sign Out">
+          <span class="iconify" data-icon="lucide:log-out" style="font-size: 1.2rem;"></span> <span class="logout-text">Sign Out</span>
         </button>
 
 
       </aside>
 
+      <!-- Mobile Sidebar Overlay -->
+      <div id="sidebar-overlay" class="hidden" onclick="toggleSidebar()"></div>
 
       <main class="main-content">
         
         <header class="top-bar">
-          <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+          <button class="mobile-menu-trigger" onclick="toggleSidebar()">
+            <span class="iconify" data-icon="lucide:panel-left"></span>
+          </button>
           <div class="search-container">
-            <span class="search-icon">🔍</span>
+            <span class="search-icon"><span class="iconify" data-icon="lucide:search"></span></span>
             <input type="text" id="globalSearch" placeholder="Search notes (Cmd+K)..." />
             <button id="search-clear" class="hidden" onclick="clearSearch()">✕</button>
-          </div>
-          
-          <div class="theme-switch-wrapper" title="Toggle Light/Dark Mode">
-            <label class="theme-switch" for="checkbox">
-                <input type="checkbox" id="checkbox" onclick="toggleTheme()" />
-                <div class="slider round">
-                    <span class="sun">☀️</span>
-                    <span class="moon">🌙</span>
-                </div>
-            </label>
           </div>
         </header>
 
 
         <section id="view-dashboard" class="view active">
-          <h2 style="margin-bottom: 25px;">Dashboard</h2>
+          
+          <!-- Welcome Section -->
+          <div class="dashboard-welcome">
+            <div>
+              <h1 id="dash-greeting">Hello, Learner! 👋</h1>
+              <p id="dash-quote" style="color: var(--text-muted); margin-top: 5px; font-style: italic;">"The expert in anything was once a beginner."</p>
+            </div>
+            <button class="btn-pri" onclick="resetAddForm()"><span class="iconify" data-icon="lucide:plus"></span> New Entry</button>
+          </div>
           
           <!-- Key Stats -->
           <div class="stats-grid">
-            <div class="card stat-card" style="display:flex; flex-direction:column; justify-content:space-between; height:120px;">
-              <h3 style="font-size:0.9rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Total Entries</h3>
-              <div class="stat-value" id="stat-total" style="color:var(--primary);">0</div>
+            <div class="card stat-card">
+              <div class="stat-icon-bg icon-blue"><span class="iconify" data-icon="lucide:book-open"></span></div>
+              <div>
+                <h3 style="font-size:0.85rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; font-weight: 600;">Total Learned</h3>
+                <div class="stat-value" id="stat-total" style="color:var(--text-main);">0</div>
+              </div>
             </div>
-            <div class="card stat-card" style="display:flex; flex-direction:column; justify-content:space-between; height:120px;">
-              <h3 style="font-size:0.9rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Streak</h3>
-              <div class="stat-value" id="stat-streak">🔥 0 Days</div>
+            
+            <div class="card stat-card">
+               <div class="stat-icon-bg icon-red"><span class="iconify" data-icon="lucide:flame"></span></div>
+               <div>
+                <h3 style="font-size:0.85rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; font-weight: 600;">Current Streak</h3>
+                <div class="stat-value" id="stat-streak">0 Days</div>
+               </div>
             </div>
-            <div class="card stat-card warning" onclick="startRevision()" style="cursor:pointer; display:flex; flex-direction:column; justify-content:space-between; height:120px; transition:all 0.2s;">
-              <h3 style="font-size:0.9rem; color:#b45309; text-transform:uppercase; letter-spacing:1px;">Need Revision</h3>
-              <div class="stat-value" id="stat-revision" style="color:#d97706;">0</div>
+
+            <div class="card stat-card warning" onclick="startRevision()" style="cursor:pointer; transition:all 0.2s;">
+               <div class="stat-icon-bg icon-yellow"><span class="iconify" data-icon="lucide:repeat"></span></div>
+               <div>
+                <h3 style="font-size:0.85rem; color:var(--text-muted); text-transform:uppercase; letter-spacing:0.5px; font-weight: 600;">To Review</h3>
+                <div class="stat-value" id="stat-revision" style="color:var(--accent-warn);">0</div>
+               </div>
             </div>
           </div>
           
           <!-- Charts Section -->
           <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap:25px; margin-bottom:40px;">
               <div class="card" style="padding: 25px;">
-                  <h3 style="margin-bottom: 15px; font-size: 1.1rem;">📊 Category Distribution</h3>
+                  <h3 style="margin-bottom: 15px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                    <span class="iconify" data-icon="lucide:pie-chart" style="color: var(--primary);"></span> Category Distribution
+                  </h3>
                   <div style="height: 250px; display: flex; justify-content: center;">
                     <canvas id="chart-category"></canvas>
                   </div>
               </div>
               <div class="card" style="padding: 25px;">
-                  <h3 style="margin-bottom: 15px; font-size: 1.1rem;">📈 Learning Activity (7 Days)</h3>
+                  <h3 style="margin-bottom: 15px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                    <span class="iconify" data-icon="lucide:trending-up" style="color: var(--primary);"></span> Learning Activity (7 Days)
+                  </h3>
                   <div style="height: 250px;">
                     <canvas id="chart-activity"></canvas>
                   </div>
@@ -155,7 +191,9 @@
 
           <!-- Heatmap Section -->
           <div class="card" style="padding: 25px; margin-bottom: 40px;">
-              <h3 style="margin-bottom: 20px; font-size: 1.1rem;">🔥 Learning Consistency</h3>
+              <h3 style="margin-bottom: 20px; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">
+                <span class="iconify" data-icon="lucide:flame" style="color: #ef4444;"></span> Learning Consistency
+              </h3>
               <div class="heatmap-wrapper">
                   <div id="heatmap-grid" class="heatmap-grid"></div>
               </div>
@@ -180,7 +218,7 @@
           <div class="filter-bar" style="display:flex; gap:30px; margin-bottom:25px; flex-wrap:wrap; align-items:center; background:var(--card-bg); padding:20px; border-radius:12px; border:1px solid var(--border);">
             <div style="display:flex; align-items:center; gap:12px;">
               <span style="font-size:0.85rem; font-weight:600; color:var(--text-muted);">📁 Category:</span>
-              <select id="filter-category" onchange="renderLibrary()" style="width:auto; min-width:140px; margin:0; padding:8px; font-size:0.9rem;">
+              <select id="filter-category" onchange="fetchEntries(true)" style="width:auto; min-width:140px; margin:0; padding:8px; font-size:0.9rem;">
                 <option value="">All Categories</option>
               </select>
             </div>
@@ -210,14 +248,13 @@
         </section>
 
 
-        <section id="view-settings" class="view hidden" style="padding: 20px; position: relative;">
-          <!-- Mobile Toggle for Settings -->
-          <button class="mobile-toggle" onclick="toggleSidebar()" style="position: absolute; top: 20px; left: 20px;">☰</button>
-          
-          <div style="width: 100%; max-width: 600px; margin: 60px auto auto auto;">
-            <h2 style="margin-bottom: 35px; text-align: center; font-size: 2rem; font-weight: 700;">Profile & Settings</h2>
-
+        <section id="view-settings" class="view hidden">
+          <div style="max-width: 800px; margin: 0 auto; position: relative;">
+            <button class="mobile-toggle" onclick="toggleSidebar()" style="position: absolute; top: 0; right: 0;"><span class="iconify" data-icon="lucide:panel-left"></span></button>
+            <button class="btn-sec" onclick="goBack()" style="margin-bottom: 25px">← Back</button>
             
+            <h2 style="margin-bottom: 25px;">Profile & Settings</h2>
+
             <div style="display: grid; gap: 30px; width: 100%;">
 
 
@@ -240,6 +277,27 @@
                 </div>
 
                 <button class="btn-pri" onclick="saveProfile()" style="width: 100%;">Update Profile</button>
+              </div>
+
+              <!-- Appearance Section -->
+              <div class="card" style="padding: 30px; text-align: left;">
+                <div style="border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 25px;">
+                  <h3 style="margin-bottom: 5px;">🎨 Appearance</h3>
+                  <p style="color:var(--text-muted); font-size: 0.95rem;">Customize your interface theme.</p>
+                </div>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-weight: 500; font-size: 1.05rem;">Dark Mode</span>
+                  <div class="theme-switch-wrapper">
+                    <label class="theme-switch" for="checkbox">
+                        <input type="checkbox" id="checkbox" onclick="toggleTheme()" />
+                        <div class="slider round">
+                            <span class="sun"><span class="iconify" data-icon="lucide:sun" style="font-size: 14px;"></span></span>
+                            <span class="moon"><span class="iconify" data-icon="lucide:moon" style="font-size: 14px;"></span></span>
+                        </div>
+                    </label>
+                  </div>
+                </div>
               </div>
               
               <!-- Data Section -->
@@ -276,7 +334,7 @@
                   <strong style="font-size: 1.05rem;">Clear All Data</strong>
                   <p style="font-size: 0.9rem; color: var(--text-muted); margin-top:6px;">Permanently remove all entries and settings.</p>
                 </div>
-                <button class="btn-remove" onclick="nukeData()" style="width: auto; height: auto; padding: 12px 24px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;">🗑️</button>
+                <button class="btn-remove" onclick="nukeData()" style="width: auto; height: auto; padding: 12px 24px; font-size: 1.2rem; display: flex; align-items: center; justify-content: center;"><span class="iconify" data-icon="lucide:trash-2"></span></button>
               </div>
             </div>
             
@@ -291,7 +349,7 @@
 
         <section id="view-add" class="view hidden">
           <div style="max-width: 800px; margin: 0 auto; position: relative;">
-            <button class="mobile-toggle" onclick="toggleSidebar()" style="position: absolute; top: 0; right: 0;">☰</button>
+            <button class="mobile-toggle" onclick="toggleSidebar()" style="position: absolute; top: 0; right: 0;"><span class="iconify" data-icon="lucide:panel-left"></span></button>
             <button class="btn-sec" onclick="goBack()" style="margin-bottom: 25px">← Back</button>
 
             <h2 id="view-add-title" style="margin-bottom: 25px;">Add New Learning</h2>
@@ -340,7 +398,7 @@
                       <button type="button" onclick="formatDoc('bold')"><b>B</b></button>
                       <button type="button" onclick="formatDoc('italic')"><i>I</i></button>
                       <button type="button" onclick="formatDoc('code')">&lt;/&gt;</button>
-                      <button type="button" onclick="formatDoc('list')">☰</button>
+                      <button type="button" onclick="formatDoc('list')"><span class="iconify" data-icon="lucide:list"></span></button>
                       <button type="button" onclick="formatDoc('h2')">H2</button>
                     </div>
                     <button type="button" class="btn-xs" onclick="togglePreview()">👁️ Preview</button>
@@ -372,7 +430,8 @@
                 </label>
               </div>
 
-              <div class="form-actions" style="border-top: 1px solid var(--border); padding-top: 25px; display: flex; justify-content: flex-end; gap: 12px;">
+              <div class="form-actions" style="border-top: 1px solid var(--border); padding-top: 25px; display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
+                <span id="draft-status" style="font-size: 0.8rem; color: var(--text-muted); opacity: 0; transition: opacity 0.3s;">Draft Saved</span>
                 <button type="button" class="btn-sec" onclick="goBack()">Cancel</button>
                 <button type="submit" class="btn-pri" id="btn-save" style="min-width: 150px;">Save Entry</button>
               </div>
@@ -383,7 +442,6 @@
         <section id="view-revision" class="view hidden">
           <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:30px;">
             <div style="display: flex; align-items: center; gap: 15px;">
-              <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
               <h2>⚡ Revision Center</h2>
             </div>
             <button class="btn-sec" onclick="router('dashboard')">Exit</button>
@@ -440,9 +498,10 @@
         </section>
 
         <section id="view-details" class="view hidden">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <button class="btn-sec" onclick="router('library')">← Back to Library</button>
-            <button class="mobile-toggle" onclick="toggleSidebar()">☰</button>
+          <div style="max-width: 800px; margin: 0 auto 20px auto;">
+            <button class="btn-sec" onclick="router('library')" style="padding: 8px 16px; font-size: 0.9rem;">
+              <span class="iconify" data-icon="lucide:arrow-left" style="margin-right: 6px; vertical-align: middle;"></span> Back to Library
+            </button>
           </div>
 
 
@@ -458,6 +517,17 @@
 
             <hr class="divider" />
 
+            <!-- AI Summary Section -->
+            <div id="detail-summary-section" style="margin-bottom: 25px;">
+                <button id="btn-summarize" class="btn-sec btn-ai-summary" onclick="summarizeEntry()">
+                    <span class="iconify" data-icon="lucide:sparkles" style="margin-right: 6px;"></span> AI Summarize
+                </button>
+                <div id="ai-summary-box" class="hidden" style="margin-top: 15px; background: linear-gradient(to right, var(--bg), var(--card-bg)); border-left: 4px solid var(--primary); padding: 15px; border-radius: 4px;">
+                    <h4 style="margin-bottom: 8px; color: var(--primary); display: flex; align-items: center; gap: 6px;"><span class="iconify" data-icon="lucide:bot"></span> Quick Summary</h4>
+                    <div id="ai-summary-content" class="markdown-body" style="font-size: 0.95rem;"></div>
+                </div>
+            </div>
+
             <div id="detail-content" class="markdown-body"></div>
 
             <div class="detail-footer">
@@ -466,75 +536,74 @@
             </div>
 
             <div class="action-row" style="margin-top: 30px; display: flex; gap: 10px;">
-              <button class="btn-sec" onclick="editEntry(null, currentViewId)" style="color: var(--primary); border-color: var(--primary);">✏️ Edit Entry</button>
-              <button class="btn-remove" onclick="deleteCurrentEntry()" style="width: auto; padding: 10px 20px; background: #fee2e2; color: red;">🗑️ Delete Entry</button>
+              <button class="btn-sec" onclick="editEntry(null, currentViewId)" style="color: var(--primary); border-color: var(--primary); display: flex; align-items: center; gap: 6px;"><span class="iconify" data-icon="lucide:pencil"></span> Edit Entry</button>
+              <button class="btn-remove" onclick="deleteCurrentEntry()" style="width: auto; padding: 10px 20px; background: #fee2e2; color: red; display: flex; align-items: center; gap: 6px;"><span class="iconify" data-icon="lucide:trash-2"></span> Delete Entry</button>
             </div>
           </div>
         </section>
       </main>
     </div>
 
-    
     <div id="loading-overlay" class="hidden">
       <div class="spinner"></div>
       <p style="margin-top: 15px; font-weight: 500;">Syncing with BrainStack...</p>
     </div>
 
     <!-- Login Overlay -->
-    <div id="login-overlay" class="hidden">
-
-      <div class="login-card">
-        <h2>Welcome Back</h2>
-        <p>Your Second Brain is ready for you.</p>
-        
-        <form onsubmit="event.preventDefault(); loginUser();">
-            <div class="login-input-group">
-                <label>Email Address</label>
-                <input type="email" id="login-email" placeholder="name@example.com" required autofocus />
+    <div id="login-overlay" class="hidden" onclick="handleOverlayClick(event)">
+      <div class="login-wrapper">
+        <div class="login-decoration"></div>
+        <div class="login-card">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <div style="font-size: 3rem; margin-bottom: 10px;">🧠</div>
+                <h2>Welcome Back</h2>
+                <p>Your Second Brain is ready.</p>
             </div>
             
-            <div class="login-input-group">
-                <label>Password</label>
-                <input type="password" id="login-pass" placeholder="••••••••" required />
-            </div>
+            <form onsubmit="event.preventDefault(); loginUser();">
+                <div class="login-input-group">
+                    <label>Email Address</label>
+                    <div class="input-with-icon">
+                        <span class="iconify" data-icon="lucide:mail"></span>
+                        <input type="email" id="login-email" placeholder="name@example.com" required autofocus />
+                    </div>
+                </div>
+                
+                <div class="login-input-group">
+                    <label>Password</label>
+                    <div class="input-with-icon">
+                        <span class="iconify" data-icon="lucide:lock"></span>
+                        <input type="password" id="login-pass" placeholder="••••••••" required />
+                        <button type="button" onclick="togglePasswordVisibility(this)" class="btn-eye" title="Show Password">
+                            <span class="iconify" data-icon="lucide:eye"></span>
+                        </button>
+                    </div>
+                </div>
 
-            <button type="submit" class="btn-login" id="btn-login">Sign In</button>
-        </form>
-        
-        <button onclick="hideLogin()" class="btn-back" style="background: none; border: none; cursor: pointer; font-size: 0.9rem;">← Back to Home</button>
-
-        
-        <p id="login-error" class="hidden" style="color: #ef4444; font-size: 0.85rem; margin-top: 20px; font-weight: 600;">❌ Invalid credentials</p>
-
+                <button type="submit" class="btn-login" id="btn-login">Sign In <span class="iconify" data-icon="lucide:arrow-right"></span></button>
+            </form>
+            
+            <button onclick="hideLogin()" class="btn-back">← Back to Home</button>
+            <p id="login-error" class="hidden" style="color: #ef4444; font-size: 0.85rem; margin-top: 20px; font-weight: 600; text-align: center; background: rgba(239,68,68,0.1); padding: 10px; border-radius: 8px;">❌ Invalid credentials</p>
+        </div>
       </div>
     </div>
 
-
-
     <!-- AI Assistant Floating Button -->
     <button class="ai-fab" onclick="toggleAIChat()" title="Ask BrainStack AI">
-        <span>🤖</span>
+        <span class="iconify" data-icon="lucide:bot-message-square" style="font-size: 1.5rem;"></span>
     </button>
 
-        <!-- AI Assistant Panel -->
-
-        <div id="ai-panel" class="ai-panel hidden">
-
-            <div id="ai-resize-handle" class="ai-resize-handle"></div>
-
-            <div class="ai-panel-header">
-
-                <button onclick="toggleAIChat()" class="btn-xs" style="color:white; border:none; font-size:1.5rem; background:none; cursor:pointer;">✕</button>
-
-                <h3>BrainStack AI 🤖</h3>
-
-            </div>
-
-    
+    <!-- AI Assistant Panel -->
+    <div id="ai-panel" class="ai-panel hidden">
+        <div id="ai-resize-handle" class="ai-resize-handle"></div>
+        <div class="ai-panel-header">
+            <button onclick="toggleAIChat()" class="btn-xs" style="color:white; border:none; font-size:1.5rem; background:none; cursor:pointer;">✕</button>
+            <h3>BrainStack AI <span class="iconify" data-icon="lucide:bot" style="margin-left: 8px;"></span></h3>
+        </div>
         <div id="ai-messages" class="ai-messages">
             <div class="ai-bubble bot">Hi! I've read all your notes. How can I help you today?</div>
         </div>
-
         <form class="ai-input-area" onsubmit="event.preventDefault(); sendAIMessage();">
             <input type="text" id="ai-input" placeholder="Ask your brain..." autocomplete="off" />
             <button type="submit">↑</button>

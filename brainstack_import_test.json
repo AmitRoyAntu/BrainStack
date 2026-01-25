@@ -1,0 +1,32 @@
+[
+  {
+    "title": "Mastering CSS Grid",
+    "category": "Web Development",
+    "date": "2026-01-20",
+    "notes": "# CSS Grid Essentials\n\nCSS Grid Layout is the most powerful layout system available in CSS.\n\n## Key Concepts\n- Grid Containers\n- Grid Items\n- Grid Lines\n\n```css\n.container {\n  display: grid;\n  grid-template-columns: repeat(3, 1fr);\n  gap: 20px;\n}\n```",
+    "difficulty": 3,
+    "revision": false,
+    "tags": ["css", "frontend", "design"],
+    "resources": ["https://developer.mozilla.org/en-US/docs/Web/CSS/CSS_Grid_Layout"]
+  },
+  {
+    "title": "Introduction to Node.js",
+    "category": "Backend",
+    "date": "2026-01-22",
+    "notes": "# Why Node.js?\n\nNode.js is a cross-platform, open-source JavaScript runtime environment that can run on Windows, Linux, Unix, macOS, and more.\n\n- Event-driven\n- Non-blocking I/O model\n- Built on Chrome's V8 engine",
+    "difficulty": 2,
+    "revision": true,
+    "tags": ["javascript", "nodejs", "server"],
+    "resources": ["https://nodejs.org/en/about/"]
+  },
+  {
+    "title": "PostgreSQL Window Functions",
+    "category": "Databases",
+    "date": "2026-01-25",
+    "notes": "## Window Functions\n\nA window function performs a calculation across a set of table rows that are somehow related to the current row.\n\nExample:\n```sql\nSELECT\n  name,\n  salary,\n  AVG(salary) OVER(PARTITION BY department) as avg_dept_salary\nFROM employees;\n```",
+    "difficulty": 4,
+    "revision": false,
+    "tags": ["sql", "postgres", "data"],
+    "resources": ["https://www.postgresql.org/docs/current/tutorial-window.html"]
+  }
+]

@@ -20,13 +20,22 @@ app.use(express.static('public'));
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 10000,
-    query_timeout: 20000
+    connectionTimeoutMillis: 30000,
+    query_timeout: 30000
 });
 
 pool.query('SELECT NOW()', (err, res) => {
     if (err) console.error("❌ Database Connection Failed:", err.message);
     else console.log("✅ Database Connected Successfully");
+});
+
+app.get('/api/health', async (req, res) => {
+    try {
+        await pool.query('SELECT 1');
+        res.json({ status: 'ok', db: 'connected' });
+    } catch (e) {
+        res.status(500).json({ status: 'error', error: e.message });
+    }
 });
 
 // Middleware
@@ -43,16 +52,18 @@ const checkAuth = (req, res, next) => {
 
 // --- ROUTES ---
 
-// 0. LOGIN
+// 0. AUTH
 app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
     try {
         const result = await pool.query('SELECT * FROM users WHERE email ILIKE $1', [email.trim()]);
         const user = result.rows[0];
-        if (!user || password.trim() !== user.password_hash.trim()) {
+        
+        if (!user || String(password).trim() !== String(user.password_hash).trim()) {
             return res.status(401).json({ error: 'Invalid credentials' });
         }
+        
         const token = jwt.sign({ id: user.user_id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, user: { name: user.display_name, email: user.email } });
     } catch (err) { res.status(500).json({ error: 'Login error' }); }
@@ -60,30 +71,65 @@ app.post('/api/auth/login', async (req, res) => {
 
 // 1. ENTRIES (Paginated)
 app.get('/api/entries', checkAuth, async (req, res) => {
+    console.log(`📥 Fetch Entries Request: User ${req.user.id}, Page ${req.query.page}, Search "${req.query.search || ''}"`);
     try {
         const userId = req.user.id;
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 15;
         const search = req.query.search || '';
+        const revision = req.query.revision === 'true';
+        const category = req.query.category || '';
+        const difficulty = parseInt(req.query.difficulty) || null;
         const offset = (page - 1) * limit;
 
         let whereClause = `WHERE e.user_id = $1`;
         let params = [userId, limit, offset];
         
+        if (revision) {
+            whereClause += ` AND e.needs_revision = true`;
+        }
+        
+        if (category) {
+            params.push(category);
+            whereClause += ` AND c.name = $${params.length}`;
+        }
+        
+        if (difficulty) {
+            params.push(difficulty);
+            whereClause += ` AND e.difficulty_level = $${params.length}`;
+        }
+
         if (search) {
+            const searchIdx = params.length + 1;
             params.push(`%${search}%`);
-            whereClause += ` AND (e.title ILIKE $4 OR e.notes_markdown ILIKE $4)`;
+            whereClause += ` AND (e.title ILIKE $${searchIdx} OR e.notes_markdown ILIKE $${searchIdx})`;
         }
 
         // Count Query
-        const countArgs = search ? [userId, `%${search}%`] : [userId];
-        const countWhere = search ? `WHERE user_id = $1 AND (title ILIKE $2 OR notes_markdown ILIKE $2)` : `WHERE user_id = $1`;
-        const countRes = await pool.query(`SELECT COUNT(*) FROM entries ${countWhere}`, countArgs);
+        const countParams = [userId];
+        let countWhere = `WHERE user_id = $1`;
+        if (revision) countWhere += ` AND needs_revision = true`;
+        if (category) {
+            countParams.push(category);
+            countWhere += ` AND category_id = (SELECT category_id FROM categories WHERE name = $${countParams.length} AND user_id = $1)`;
+        }
+        if (difficulty) {
+            countParams.push(difficulty);
+            countWhere += ` AND difficulty_level = $${countParams.length}`;
+        }
+        if (search) {
+            const searchIdx = countParams.length + 1;
+            countParams.push(`%${search}%`);
+            countWhere += ` AND (title ILIKE $${searchIdx} OR notes_markdown ILIKE $${searchIdx})`;
+        }
+        
+        const countRes = await pool.query(`SELECT COUNT(*) FROM entries ${countWhere}`, countParams);
         const total = parseInt(countRes.rows[0].count);
 
-        // Data Query
         const query = `
-            SELECT e.*, TO_CHAR(e.learning_date, 'YYYY-MM-DD') as learning_date, c.name as category_name,
+            SELECT e.entry_id, e.title, e.notes_markdown, e.difficulty_level, e.needs_revision, 
+            e.created_at, e.updated_at, TO_CHAR(e.learning_date, 'YYYY-MM-DD') as learning_date, 
+            c.name as category_name,
             COALESCE((SELECT array_agg(t.name) FROM entry_tags et JOIN tags t ON et.tag_id = t.tag_id WHERE et.entry_id = e.entry_id), '{}') as tags,
             COALESCE((SELECT array_agg(r.url) FROM resources r WHERE r.entry_id = e.entry_id), '{}') as resources
             FROM entries e LEFT JOIN categories c ON e.category_id = c.category_id
@@ -92,6 +138,9 @@ app.get('/api/entries', checkAuth, async (req, res) => {
             LIMIT $2 OFFSET $3
         `;
         const { rows } = await pool.query(query, params);
+        // Debugging
+        if (revision) console.log(`🔍 Revision Fetch: Found ${rows.length} items for User ${userId}`);
+        
         res.json({ data: rows, pagination: { total, page, limit, totalPages: Math.ceil(total / limit) } });
     } catch (err) { 
         console.error("Fetch Error:", err.message);
@@ -155,7 +204,7 @@ app.get('/api/export', checkAuth, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'Export failed' }); }
 });
 
-// 5. GLOBAL AI CHAT
+// 5. AI ROUTES
 app.post('/api/ai/global-chat', checkAuth, async (req, res) => {
     try {
         const userId = req.user.id;
@@ -182,12 +231,31 @@ app.post('/api/ai/global-chat', checkAuth, async (req, res) => {
     } catch (err) { res.status(500).json({ error: 'AI error' }); }
 });
 
+app.post('/api/ai/summarize', checkAuth, async (req, res) => {
+    try {
+        const { content } = req.body;
+        if (!content) return res.status(400).json({ error: 'No content' });
+
+        const messages = [
+            { role: "system", content: "You are a helpful assistant. Summarize the following note into exactly 3 concise bullet points. Return ONLY the bullet points, nothing else." },
+            { role: "user", content: content }
+        ];
+
+        const completion = await groq.chat.completions.create({ messages, model: "llama-3.3-70b-versatile" });
+        res.json({ summary: completion.choices[0]?.message?.content });
+    } catch (err) { 
+        console.error("AI Summarize Error:", err);
+        res.status(500).json({ error: err.message || 'AI summary failed' }); 
+    }
+});
+
 // 6. CREATE / UPDATE / DELETE
 app.post('/api/entries', checkAuth, async (req, res) => {
     const { title, category_name, date, notes, difficulty, needs_revision, resources, tags } = req.body;
     const userId = req.user.id;
-    const client = await pool.connect();
+    let client;
     try {
+        client = await pool.connect();
         await client.query('BEGIN');
         let cat = await client.query('SELECT category_id FROM categories WHERE name = $1 AND user_id = $2', [category_name, userId]);
         let cid = cat.rows.length > 0 ? cat.rows[0].category_id : (await client.query('INSERT INTO categories (name, user_id) VALUES ($1, $2) RETURNING category_id', [category_name, userId])).rows[0].category_id;
@@ -200,14 +268,15 @@ app.post('/api/entries', checkAuth, async (req, res) => {
             await client.query('INSERT INTO entry_tags (entry_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [eid, tid]);
         }
         await client.query('COMMIT'); res.json({ success: true });
-    } catch (e) { await client.query('ROLLBACK'); res.status(500).json({ error: 'Save failed' }); } finally { client.release(); }
+    } catch (e) { if(client) await client.query('ROLLBACK'); res.status(500).json({ error: 'Save failed' }); } finally { if(client) client.release(); }
 });
 
 app.put('/api/entries/:id', checkAuth, async (req, res) => {
     const { title, category_name, date, notes, difficulty, needs_revision, resources, tags } = req.body;
     const userId = req.user.id; const eid = req.params.id;
-    const client = await pool.connect();
+    let client;
     try {
+        client = await pool.connect();
         await client.query('BEGIN');
         let cat = await client.query('SELECT category_id FROM categories WHERE name = $1 AND user_id = $2', [category_name, userId]);
         let cid = cat.rows.length > 0 ? cat.rows[0].category_id : (await client.query('INSERT INTO categories (name, user_id) VALUES ($1, $2) RETURNING category_id', [category_name, userId])).rows[0].category_id;
@@ -221,7 +290,28 @@ app.put('/api/entries/:id', checkAuth, async (req, res) => {
             await client.query('INSERT INTO entry_tags (entry_id, tag_id) VALUES ($1, $2) ON CONFLICT DO NOTHING', [eid, tid]);
         }
         await client.query('COMMIT'); res.json({ success: true });
-    } catch (e) { await client.query('ROLLBACK'); res.status(500).json({ error: 'Update failed' }); } finally { client.release(); }
+    } catch (e) { if(client) await client.query('ROLLBACK'); res.status(500).json({ error: 'Update failed' }); } finally { if(client) client.release(); }
+});
+
+app.delete('/api/danger/clear-all', checkAuth, async (req, res) => {
+    const userId = req.user.id;
+    let client;
+    try {
+        client = await pool.connect();
+        await client.query('BEGIN');
+        await client.query('DELETE FROM resources WHERE entry_id IN (SELECT entry_id FROM entries WHERE user_id = $1)', [userId]);
+        await client.query('DELETE FROM entry_tags WHERE entry_id IN (SELECT entry_id FROM entries WHERE user_id = $1)', [userId]);
+        await client.query('DELETE FROM entries WHERE user_id = $1', [userId]);
+        await client.query('DELETE FROM categories WHERE user_id = $1', [userId]);
+        await client.query('COMMIT');
+        res.json({ success: true });
+    } catch (e) { 
+        if(client) await client.query('ROLLBACK');
+        console.error("Nuke Route Error:", e);
+        res.status(500).json({ error: 'Nuke failed' }); 
+    } finally { 
+        if(client) client.release(); 
+    }
 });
 
 app.delete('/api/entries/:id', checkAuth, async (req, res) => {
@@ -229,6 +319,7 @@ app.delete('/api/entries/:id', checkAuth, async (req, res) => {
     catch (e) { res.status(500).json({ error: 'Delete failed' }); }
 });
 
+// 7. PROFILE
 app.get('/api/profile', checkAuth, async (req, res) => {
     try {
         const { rows } = await pool.query('SELECT display_name as name, bio FROM users WHERE user_id = $1', [req.user.id]);
@@ -238,10 +329,14 @@ app.get('/api/profile', checkAuth, async (req, res) => {
 
 app.put('/api/profile', checkAuth, async (req, res) => {
     try {
-        await pool.query('UPDATE users SET display_name = $1, bio = $2 WHERE user_id = $3', [req.body.name, req.body.bio, req.user.id]);
+        const { name, bio } = req.body;
+        if (!name || !name.trim()) return res.status(400).json({ error: 'Name is required' });
+        await pool.query('UPDATE users SET display_name = $1, bio = $2 WHERE user_id = $3', [name.trim(), bio, req.user.id]);
         res.json({ success: true });
     } catch (err) { res.status(500).json({ error: 'Profile failed' }); }
 });
 
-app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));
+// 8. SPA ROUTING
 app.get('*', (req, res) => res.sendFile(__dirname + '/public/index.html'));
+
+app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));

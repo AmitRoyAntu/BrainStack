@@ -39,11 +39,16 @@ async function fetchEntries(reset = false) {
     try {
         const searchInput = document.getElementById('globalSearch');
         const searchTerm = searchInput ? searchInput.value.trim() : '';
-        const res = await fetch(`${API_URL}/entries?page=${currentPage}&limit=15&search=${encodeURIComponent(searchTerm)}`, {
-            headers: getHeaders()
-        });
+        const catFilter = document.getElementById('filter-category')?.value || '';
+        const diffFilter = document.getElementById('filter-difficulty')?.value || '';
+
+        let url = `${API_URL}/entries?page=${currentPage}&limit=15&search=${encodeURIComponent(searchTerm)}`;
+        if (catFilter) url += `&category=${encodeURIComponent(catFilter)}`;
+        if (diffFilter) url += `&difficulty=${diffFilter}`;
+
+        const res = await fetch(url, { headers: getHeaders() });
         if (res.status === 401 || res.status === 403) { logout(); return; }
-        if (!res.ok) throw new Error('Failed to fetch');
+        if (!res.ok) throw new Error(`Fetch failed with status ${res.status}`);
         const responseData = await res.json();
         totalPages = responseData.pagination.totalPages;
         entries = responseData.data.map(e => ({
@@ -52,7 +57,7 @@ async function fetchEntries(reset = false) {
         renderDashboard(); renderLibrary(); updatePaginationUI();
     } catch (err) {
         console.error("Error loading entries:", err);
-        showToast("❌ Server Error: Could not load data");
+        showToast(`❌ Server Error: ${err.message || "Could not load data"}`);
     } finally {
         hideLoading(); isLoading = false;
     }
@@ -96,7 +101,11 @@ async function fetchCategories() {
     try {
         const res = await fetch(`${API_URL}/categories`, { headers: getHeaders() });
         if (res.status === 401 || res.status === 403) { logout(); return; }
-        if (res.ok) { categories = await res.json(); renderCategoryOptions(); }
+        if (res.ok) { 
+            categories = await res.json(); 
+            renderCategoryOptions(); 
+            renderSidebarNav(); // Update sidebar with new categories
+        }
     } catch (err) { console.error(err); }
 }
 
@@ -126,6 +135,17 @@ function router(viewName) {
         if (['add', 'details', 'revision', 'settings'].includes(viewName)) topBar.classList.add('hidden');
         else topBar.classList.remove('hidden');
     }
+    
+    // Re-render sidebar to update active states
+    renderSidebarNav();
+
+    // Toggle active state for profile section
+    const profileSection = document.querySelector('.user-profile');
+    if (profileSection) {
+        if (viewName === 'settings') profileSection.classList.add('active');
+        else profileSection.classList.remove('active');
+    }
+
     if (viewName === 'dashboard') renderDashboard();
     if (viewName === 'library') renderLibrary();
     if (viewName === 'settings') loadProfileIntoForm();
@@ -133,7 +153,37 @@ function router(viewName) {
 
 function getTodayString() { return new Date().toLocaleDateString('en-CA'); }
 window.goBack = function() { router(lastView || 'dashboard'); };
-window.toggleSidebar = function() { document.querySelector('.sidebar').classList.toggle('open'); };
+window.toggleSidebar = function() {
+    if (window.innerWidth > 768) {
+        // Desktop: Collapse/Expand
+        document.querySelector('.app-container').classList.toggle('collapsed');
+        const isCollapsed = document.querySelector('.app-container').classList.contains('collapsed');
+        localStorage.setItem('sidebarCollapsed', isCollapsed);
+    } else {
+        // Mobile: Slide In/Out
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('sidebar-overlay');
+        
+        sidebar.classList.toggle('open');
+        
+        if (sidebar.classList.contains('open')) {
+            overlay.classList.remove('hidden');
+            // Small timeout to allow display:block to apply before opacity transition
+            setTimeout(() => overlay.classList.add('active'), 10);
+        } else {
+            overlay.classList.remove('active');
+            setTimeout(() => overlay.classList.add('hidden'), 300);
+        }
+    }
+};
+
+// Initialize Sidebar State
+document.addEventListener('DOMContentLoaded', () => {
+    const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+    if (isCollapsed && window.innerWidth > 768) {
+        document.querySelector('.app-container').classList.add('collapsed');
+    }
+});
 
 // ========================================== 
 // 4. UI LOGIC & EVENTS
@@ -152,11 +202,11 @@ document.addEventListener('DOMContentLoaded', () => {
         initApp();
     } else {
         document.getElementById('landing-page').classList.remove('hidden');
+        document.querySelector('.app-container').classList.add('hidden'); // Ensure app is hidden
     }
 
     document.addEventListener('keydown', (e) => {
         if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); document.getElementById('globalSearch').focus(); }
-        if (e.key === 'Enter' && !document.getElementById('login-overlay').classList.contains('hidden')) loginUser();
     });
 
     const notesArea = document.getElementById('inp-notes');
@@ -177,13 +227,11 @@ document.addEventListener('DOMContentLoaded', () => {
             else clearBtn.classList.add('hidden');
         });
     }
-
-    if (getToken()) router('dashboard');
 });
 
 async function initApp() {
-    document.getElementById('login-overlay').classList.add('hidden');
     document.getElementById('landing-page').classList.add('hidden');
+    document.querySelector('.app-container').classList.remove('hidden'); // Reveal app only now
     fetchEntries(true);
     fetchProfile();
     fetchCategories();
@@ -193,6 +241,7 @@ async function initApp() {
 window.showLogin = function() {
     document.getElementById('landing-page').classList.add('hidden');
     document.getElementById('login-overlay').classList.remove('hidden');
+    setTimeout(() => document.getElementById('login-email').focus(), 100);
 };
 
 window.hideLogin = function() {
@@ -200,27 +249,94 @@ window.hideLogin = function() {
     document.getElementById('landing-page').classList.remove('hidden');
 };
 
+window.handleOverlayClick = function(e) {
+    // Only close if clicking the background (id="login-overlay"), not the card (child)
+    if (e.target.id === 'login-overlay') {
+        hideLogin();
+    }
+};
+
+window.togglePasswordVisibility = function(btn) {
+    const input = document.getElementById('login-pass');
+    const icon = btn.querySelector('.iconify');
+    
+    if (input.type === 'password') {
+        input.type = 'text';
+        icon.setAttribute('data-icon', 'lucide:eye-off');
+        btn.title = "Hide Password";
+    } else {
+        input.type = 'password';
+        icon.setAttribute('data-icon', 'lucide:eye');
+        btn.title = "Show Password";
+    }
+};
+
 window.loginUser = async function() {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-pass').value;
     const err = document.getElementById('login-error');
     const btn = document.getElementById('btn-login');
-    btn.disabled = true; btn.innerText = 'Authenticating...';
+    btn.disabled = true; btn.innerHTML = 'Authenticating...';
     try {
         const res = await fetch(`${API_URL}/auth/login`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password })
         });
-        if (res.ok) { const data = await res.json(); localStorage.setItem('token', data.token); initApp(); }
+        if (res.ok) { 
+            const data = await res.json(); 
+            localStorage.setItem('token', data.token); 
+            
+            // Hide login & landing, show app
+            document.getElementById('login-overlay').classList.add('hidden');
+            document.getElementById('landing-page').classList.add('hidden');
+            
+            // Initialize App
+            await initApp();
+        }
         else err.classList.remove('hidden');
     } catch (e) { alert("Connection Error"); }
-    finally { btn.disabled = false; btn.innerText = 'Sign In'; }
+    finally { btn.disabled = false; btn.innerHTML = 'Sign In <span class="iconify" data-icon="lucide:arrow-right"></span>'; }
 };
 
-window.logout = function() { localStorage.removeItem('token'); location.reload(); };
+window.logout = function() { 
+    localStorage.removeItem('token'); 
+    document.querySelector('.app-container').classList.add('hidden');
+    document.getElementById('landing-page').classList.remove('hidden');
+    location.reload(); 
+};
 
 window.clearSearch = function() {
     const input = document.getElementById('globalSearch'); input.value = '';
     document.getElementById('search-clear').classList.add('hidden'); fetchEntries(true);
+};
+
+window.renderSidebarNav = function() {
+    const nav = document.getElementById('dynamic-nav');
+    if (!nav) return;
+
+    const coreItems = [
+        { label: 'Dashboard', icon: '<span class="iconify" data-icon="lucide:layout-dashboard"></span>', action: "router('dashboard')", target: 'dashboard' },
+        { label: 'Add Entry', icon: '<span class="iconify" data-icon="lucide:pen-square"></span>', action: "resetAddForm()", target: 'add' },
+        { label: 'Library', icon: '<span class="iconify" data-icon="lucide:library"></span>', action: "router('library')", target: 'library' }
+    ];
+
+    let html = '';
+
+    // Core Items
+    coreItems.forEach(item => {
+        const activeClass = (document.querySelector('.view.active')?.id === `view-${item.target}`) ? 'active' : '';
+        html += `<button class="nav-btn ${activeClass}" data-target="${item.target}" onclick="${item.action}" title="${item.label}">${item.icon} <span>${item.label}</span></button>`;
+    });
+
+    nav.innerHTML = html;
+};
+
+window.filterByCategory = function(catName) {
+    const filter = document.getElementById('filter-category');
+    if (filter) {
+        filter.value = catName;
+        router('library');
+        renderLibrary();
+    }
 };
 
 function renderCategoryOptions() {
@@ -257,12 +373,24 @@ if (diffInput) {
 
 const tagInput = document.getElementById('inp-tags');
 if (tagInput) {
+    const addTag = () => {
+        const val = tagInput.value.trim().replace(/,/g, '');
+        if (val && !currentTags.includes(val)) {
+            currentTags.push(val);
+            renderTags();
+            tagInput.value = '';
+            window.saveDraft();
+        }
+    };
+
     tagInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            e.preventDefault(); const val = tagInput.value.trim();
-            if (val && !currentTags.includes(val)) { currentTags.push(val); renderTags(); tagInput.value = ''; }
+        if (e.key === 'Enter' || e.key === ',') {
+            e.preventDefault();
+            addTag();
         }
     });
+
+    tagInput.addEventListener('blur', addTag);
 }
 
 function renderTags() {
@@ -275,13 +403,14 @@ function renderTags() {
     });
 }
 
-function removeTag(tag) { currentTags = currentTags.filter(t => t !== tag); renderTags(); }
+function removeTag(tag) { currentTags = currentTags.filter(t => t !== tag); renderTags(); window.saveDraft(); }
 
 window.addResourceField = function() {
     const list = document.getElementById('resource-list');
     const div = document.createElement('div'); div.className = 'resource-row';
-    div.innerHTML = `<span style="color:var(--text-muted); font-size:1.1rem;">🔗</span><input type="url" placeholder="https://..." class="res-link" style="margin-bottom:0; flex-grow:1;"><button type="button" class="btn-remove" onclick="this.parentElement.remove()" style="width:32px; height:32px; min-width:32px;">×</button>`;
+    div.innerHTML = `<span style="color:var(--text-muted); font-size:1.1rem; display:flex; align-items:center;"><span class="iconify" data-icon="lucide:link"></span></span><input type="url" placeholder="https://..." class="res-link" style="margin-bottom:0; flex-grow:1;"><button type="button" class="btn-remove" onclick="this.parentElement.remove(); window.saveDraft();" style="width:32px; height:32px; min-width:32px; display:flex; align-items:center; justify-content:center;">×</button>`;
     list.appendChild(div);
+    window.saveDraft();
 };
 
 window.toggleTheme = function() {
@@ -292,6 +421,9 @@ window.toggleTheme = function() {
 
 const addForm = document.getElementById('add-form');
 if (addForm) {
+    // Auto-save on input
+    addForm.addEventListener('input', () => window.saveDraft());
+
     addForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const btn = document.getElementById('btn-save'); btn.innerText = 'Wait...'; btn.disabled = true;
@@ -305,9 +437,16 @@ if (addForm) {
                 method: entryId ? 'PUT' : 'POST', headers: getHeaders(), body: JSON.stringify(payload)
             });
             if (!res.ok) throw new Error("Save failed");
+            
+            if(!entryId) window.clearDraft(); // Clear draft on successful new entry save
+            
             showToast("Saved! ✓"); await fetchEntries(true); await fetchStats(); await fetchCategories();
-            resetAddForm(); document.getElementById('btn-save').disabled = false;
-            if (entryId) viewEntry(Number(entryId)); else setTimeout(() => goBack(), 500);
+            
+            // Only reset if it was a new entry, otherwise stay or go back? 
+            // Standard behavior: go back or view entry.
+            if (entryId) viewEntry(Number(entryId)); else { resetAddForm(); setTimeout(() => goBack(), 500); }
+            
+            document.getElementById('btn-save').disabled = false;
         } catch (err) { showToast("❌ Error saving"); btn.disabled = false; }
     });
 }
@@ -344,8 +483,35 @@ async function deleteEntryAPI(id) {
 
 window.loadProfileIntoForm = function() { document.getElementById('prof-name').value = profile.name; document.getElementById('prof-bio').value = profile.bio; };
 window.saveProfile = async function() {
-    profile.name = document.getElementById('prof-name').value; profile.bio = document.getElementById('prof-bio').value;
-    try { await fetch(`${API_URL}/profile`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify(profile) }); updateSidebar(); showToast('Updated! ✨'); } catch (err) { showToast('❌ Failed'); }
+    const name = document.getElementById('prof-name').value.trim();
+    const bio = document.getElementById('prof-bio').value.trim();
+    
+    if (!name) return showToast("❌ Name cannot be empty");
+
+    const btn = document.querySelector('#view-settings .btn-pri');
+    const originalText = btn.innerText;
+    btn.disabled = true;
+    btn.innerText = 'Updating...';
+
+    try { 
+        const res = await fetch(`${API_URL}/profile`, { 
+            method: 'PUT', 
+            headers: getHeaders(), 
+            body: JSON.stringify({ name, bio }) 
+        }); 
+        
+        if (!res.ok) throw new Error("Update failed");
+        
+        profile.name = name;
+        profile.bio = bio;
+        updateSidebar(); 
+        showToast('Profile updated! ✨'); 
+    } catch (err) { 
+        showToast('❌ Failed to update profile'); 
+    } finally {
+        btn.disabled = false;
+        btn.innerText = originalText;
+    }
 };
 
 window.exportData = async function() {
@@ -366,30 +532,163 @@ window.importData = function(input) {
     const reader = new FileReader();
     reader.onload = async (e) => {
         try {
-            const imported = JSON.parse(e.target.result);
+            const data = JSON.parse(e.target.result);
+            const imported = Array.isArray(data) ? data : [data];
             showLoading();
             for (const entry of imported) {
-                const payload = { title: entry.title, category_name: entry.category || 'General', date: entry.date || getTodayString(), notes: entry.notes || '', difficulty: entry.difficulty || 1, needs_revision: entry.revision || false, resources: entry.resources || [], tags: entry.tags || [] };
-                await fetch(`${API_URL}/entries`, { method: 'POST', headers: getHeaders(), body: JSON.stringify(payload) });
+                if (!entry) continue;
+                const payload = { 
+                    title: entry.title || 'Untitled', 
+                    category_name: entry.category || 'General', 
+                    date: entry.date || getTodayString(), 
+                    notes: entry.notes || '', 
+                    difficulty: entry.difficulty || 1, 
+                    needs_revision: entry.revision || false, 
+                    resources: entry.resources || [], 
+                    tags: entry.tags || [] 
+                };
+                const res = await fetch(`${API_URL}/entries`, { 
+                    method: 'POST', 
+                    headers: getHeaders(), 
+                    body: JSON.stringify(payload) 
+                });
+                if (!res.ok) {
+                    const errorData = await res.json().catch(() => ({}));
+                    throw new Error(errorData.error || `Server error ${res.status}`);
+                }
             }
-            showToast(`Import complete!`); await fetchEntries(true); await fetchStats(); await fetchCategories();
-        } catch (err) { showToast("❌ Import failed"); } finally { hideLoading(); }
+            showToast(`✅ Import complete! Imported ${imported.length} entries.`); 
+            await Promise.all([fetchEntries(true), fetchStats(), fetchCategories()]);
+        } catch (err) { 
+            console.error("Import Error:", err);
+            showToast(`❌ Import failed: ${err.message}`); 
+        } finally { 
+            hideLoading(); 
+            input.value = ''; 
+        }
     };
     reader.readAsText(file);
 };
 
 window.nukeData = async function() {
-    if(!confirm('⚠️ NUKE EVERYTHING?')) return;
-    try { await fetch(`${API_URL}/danger/clear-all`, { method: 'DELETE', headers: getHeaders() }); localStorage.clear(); location.reload(); } 
-    catch (err) { showToast("❌ Error"); }
+    if(!confirm('⚠️ Are you sure you want to PERMANENTLY delete all your entries and categories? This cannot be undone.')) return;
+    if(!confirm('Final warning: This will wipe your entire second brain. Continue?')) return;
+    
+    showLoading();
+    try { 
+        const res = await fetch(`${API_URL}/danger/clear-all`, { method: 'DELETE', headers: getHeaders() }); 
+        if (!res.ok) {
+            const errorData = await res.json().catch(() => ({}));
+            throw new Error(errorData.error || `Server error ${res.status}`);
+        }
+        
+        showToast("🧹 Data cleared successfully.");
+        // Reset local state without logging out
+        entries = [];
+        stats = { total: 0, revision: 0, streak: 0, categories: [], activity: [], heatmap: [] };
+        categories = [];
+        
+        // Refresh UI and go to dashboard
+        await Promise.all([fetchEntries(true), fetchStats(), fetchCategories()]);
+        router('dashboard');
+    } catch (err) { 
+        hideLoading();
+        console.error("Nuke Error:", err);
+        showToast(`❌ Error: ${err.message}`); 
+    }
 };
 
 function updateSidebar() {
-    document.getElementById('side-name').innerText = profile.name;
-    document.getElementById('side-status').innerText = profile.bio;
-    const initials = profile.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
-    document.getElementById('side-avatar').innerText = initials || '??';
+    const nameEl = document.getElementById('side-name');
+    const bioEl = document.getElementById('side-status');
+    const avatarEl = document.getElementById('side-avatar');
+    
+    if (nameEl) nameEl.innerText = profile.name || 'User';
+    if (bioEl) bioEl.innerText = profile.bio || 'Learner';
+    
+    if (avatarEl) {
+        const parts = (profile.name || 'U').split(' ').filter(p => p.length > 0);
+        let initials = '';
+        if (parts.length > 1) {
+            initials = (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        } else if (parts.length === 1) {
+            initials = parts[0].substring(0, 2).toUpperCase();
+        } else {
+            initials = '??';
+        }
+        avatarEl.innerText = initials;
+    }
 }
+
+// ========================================== 
+// 5. AUTO-SAVE DRAFTS
+// ========================================== 
+window.saveDraft = function() {
+    // Don't save draft if we are editing an existing entry
+    if (document.getElementById('inp-id').value) return;
+
+    const draft = {
+        title: document.getElementById('inp-title').value,
+        category: document.getElementById('inp-category').value,
+        newCategory: document.getElementById('inp-new-category').value,
+        date: document.getElementById('inp-date').value,
+        notes: document.getElementById('inp-notes').value,
+        difficulty: document.getElementById('inp-difficulty').value,
+        revision: document.getElementById('inp-revision').checked,
+        tags: currentTags,
+        resources: Array.from(document.querySelectorAll('.res-link')).map(i => i.value).filter(v => v)
+    };
+    localStorage.setItem('brainstack_draft', JSON.stringify(draft));
+    
+    const status = document.getElementById('draft-status');
+    if(status) { status.style.opacity = '1'; setTimeout(() => status.style.opacity = '0', 2000); }
+};
+
+window.clearDraft = function() { localStorage.removeItem('brainstack_draft'); };
+
+window.restoreDraft = function() {
+    const saved = localStorage.getItem('brainstack_draft');
+    if (!saved) return;
+    try {
+        const draft = JSON.parse(saved);
+        
+        // Safety: Don't overwrite if the user has already typed something
+        const currentTitle = document.getElementById('inp-title').value;
+        const currentNotes = document.getElementById('inp-notes').value;
+        if (currentTitle || currentNotes) return;
+
+        if (!draft.title && !draft.notes && (!draft.tags || draft.tags.length === 0)) return;
+
+        document.getElementById('inp-title').value = draft.title || '';
+        document.getElementById('inp-notes').value = draft.notes || '';
+        document.getElementById('inp-difficulty').value = draft.difficulty || 1;
+        document.getElementById('diff-label').innerText = ['Beginner','Easy','Medium','Hard','Expert'][(draft.difficulty||1)-1];
+        document.getElementById('inp-revision').checked = draft.revision || false;
+        
+        if (draft.newCategory) {
+             document.getElementById('inp-category').classList.add('hidden');
+             document.getElementById('inp-new-category').classList.remove('hidden');
+             document.getElementById('inp-new-category').value = draft.newCategory;
+        } else if (draft.category) {
+             document.getElementById('inp-category').value = draft.category;
+        }
+        
+        if (draft.date) document.getElementById('inp-date').value = draft.date;
+
+        currentTags = draft.tags || [];
+        renderTags();
+
+        const resList = document.getElementById('resource-list');
+        resList.innerHTML = '';
+        (draft.resources || []).forEach(url => {
+            const div = document.createElement('div'); div.className = 'resource-row';
+            div.innerHTML = `<span style="color:var(--text-muted); font-size:1.1rem; display:flex; align-items:center;"><span class="iconify" data-icon="lucide:link"></span></span><input type="url" value="${url}" class="res-link" style="margin-bottom:0; flex-grow:1;"><button type="button" class="btn-remove" onclick="this.parentElement.remove(); saveDraft();" style="width:32px; height:32px; min-width:32px; display:flex; align-items:center; justify-content:center;">×</button>`;
+            resList.appendChild(div);
+        });
+
+        showToast("Draft restored from local storage");
+    } catch (e) { console.error("Draft restore error", e); }
+};
 
 window.resetAddForm = function() {
     document.getElementById('add-form').reset(); document.getElementById('inp-date').value = getTodayString();
@@ -397,6 +696,9 @@ window.resetAddForm = function() {
     document.getElementById('view-add-title').innerText = 'Add New Learning'; currentTags = [];
     document.getElementById('resource-list').innerHTML = ''; renderTags();
     document.getElementById('inp-category').classList.remove('hidden'); document.getElementById('inp-new-category').classList.add('hidden');
+    
+    restoreDraft(); // Attempt to restore draft
+    
     router('add');
 };
 
@@ -411,46 +713,131 @@ function formatLocalTime(timestamp) {
     return new Date(timestamp).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
+function updateDashboardGreeting() {
+    const hour = new Date().getHours();
+    const greetingEl = document.getElementById('dash-greeting');
+    const name = profile.name.split(' ')[0] || 'Learner';
+    
+    let timeGreeting = 'Hello';
+    if (hour < 12) timeGreeting = 'Good morning';
+    else if (hour < 18) timeGreeting = 'Good afternoon';
+    else timeGreeting = 'Good evening';
+    
+    if(greetingEl) greetingEl.innerText = `${timeGreeting}, ${name}! 👋`;
+
+    const quotes = [
+        "The expert in anything was once a beginner.",
+        "Learning never exhausts the mind.",
+        "Change is the end result of all true learning.",
+        "Study hard what interests you the most in the most undisciplined, irreverent and original manner possible.",
+        "Live as if you were to die tomorrow. Learn as if you were to live forever.",
+        "Knowledge has a beginning but no end.",
+        "One hour per day of study will put you at the top of your field within three years."
+    ];
+    const quoteEl = document.getElementById('dash-quote');
+    if(quoteEl) quoteEl.innerText = `"${quotes[Math.floor(Math.random() * quotes.length)]}"`;
+}
+
 function renderDashboard() {
+    updateDashboardGreeting();
     document.getElementById('stat-total').innerText = stats.total;
     document.getElementById('stat-revision').innerText = stats.revision;
-    document.getElementById('stat-streak').innerText = `🔥 ${stats.streak} Days`;
-    renderHeatmap();
-    const ctxCat = document.getElementById('chart-category');
-    if (ctxCat) {
-        if (categoryChart) categoryChart.destroy();
-        categoryChart = new Chart(ctxCat, {
-            type: 'doughnut', data: { labels: stats.categories.map(c => c.name), datasets: [{ data: stats.categories.map(c => c.count), backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'], borderWidth: 0 }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15, color: getComputedStyle(document.body).getPropertyValue('--text-main') } } } }
-        });
-    }
-    const last7Days = []; const activityMap = {}; stats.activity.forEach(a => { activityMap[a.learning_date] = parseInt(a.count); });
-    for (let i = 6; i >= 0; i--) {
-        const d = new Date(); d.setDate(d.getDate() - i); const ds = d.toISOString().split('T')[0];
-        last7Days.push({ label: d.toLocaleDateString(undefined, { weekday: 'short' }), count: activityMap[ds] || 0 });
-    }
-    const ctxAct = document.getElementById('chart-activity');
-    if (ctxAct) {
-        if (activityChart) activityChart.destroy();
-        activityChart = new Chart(ctxAct, {
-            type: 'bar', data: { labels: last7Days.map(d => d.label), datasets: [{ label: 'Entries', data: last7Days.map(d => d.count), backgroundColor: 'rgba(99, 102, 241, 0.8)', borderRadius: 6 }] },
-            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { stepSize: 1, color: getComputedStyle(document.body).getPropertyValue('--text-main') }, grid: { display: false } }, x: { ticks: { color: getComputedStyle(document.body).getPropertyValue('--text-main') }, grid: { display: false } } }, plugins: { legend: { display: false } } }
-        });
-    }
-    const list = document.getElementById('recent-list'); if (list) {
+    document.getElementById('stat-streak').innerText = `${stats.streak} Days`;
+    
+    try { renderHeatmap(); } catch (e) { console.error(e); }
+
+    try {
+        const textColor = getComputedStyle(document.body).getPropertyValue('--text-main') || '#1f2937';
+        
+        const ctxCat = document.getElementById('chart-category');
+        if (ctxCat) {
+            if (categoryChart) categoryChart.destroy();
+            if (stats.categories.length === 0) {
+                ctxCat.style.display = 'none';
+                if (!document.getElementById('cat-empty-msg')) {
+                    const msg = document.createElement('div');
+                    msg.id = 'cat-empty-msg';
+                    msg.style.cssText = 'height:100%; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-style:italic;';
+                    msg.innerText = 'No data yet';
+                    ctxCat.parentElement.appendChild(msg);
+                }
+            } else {
+                ctxCat.style.display = 'block';
+                const existingMsg = document.getElementById('cat-empty-msg');
+                if (existingMsg) existingMsg.remove();
+                categoryChart = new Chart(ctxCat, {
+                    type: 'doughnut', 
+                    data: { 
+                        labels: stats.categories.map(c => c.name), 
+                        datasets: [{ 
+                            data: stats.categories.map(c => c.count), 
+                            backgroundColor: ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f43f5e'], 
+                            borderWidth: 0 
+                        }] 
+                    },
+                    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 15, color: textColor } } } }
+                });
+            }
+        }
+
+        const last7Days = []; 
+        const activityMap = {}; 
+        stats.activity.forEach(a => { activityMap[a.learning_date] = parseInt(a.count); });
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date(); d.setDate(d.getDate() - i); 
+            const ds = d.toLocaleDateString('en-CA');
+            last7Days.push({ label: d.toLocaleDateString(undefined, { weekday: 'short' }), count: activityMap[ds] || 0 });
+        }
+
+        const ctxAct = document.getElementById('chart-activity');
+        if (ctxAct) {
+            if (activityChart) activityChart.destroy();
+            activityChart = new Chart(ctxAct, {
+                type: 'bar', 
+                data: { 
+                    labels: last7Days.map(d => d.label), 
+                    datasets: [{ label: 'Entries', data: last7Days.map(d => d.count), backgroundColor: 'rgba(99, 102, 241, 0.8)', borderRadius: 6 }] 
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false, 
+                    scales: { 
+                        y: { beginAtZero: true, ticks: { stepSize: 1, color: textColor }, grid: { display: false } }, 
+                        x: { ticks: { color: textColor }, grid: { display: false } } 
+                    }, 
+                    plugins: { legend: { display: false } } 
+                }
+            });
+        }
+    } catch (e) { console.error("Chart error:", e); }
+
+    const list = document.getElementById('recent-list'); 
+    if (list) {
         list.innerHTML = entries.length ? '' : '<p style="color:var(--text-muted)">No entries yet.</p>';
         entries.slice(0, 5).forEach(entry => {
-            const item = document.createElement('div'); item.className = 'card'; item.style.cssText = 'padding:15px 20px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; border-left:4px solid var(--primary);';
+            const item = document.createElement('div'); 
+            item.className = 'card'; 
+            item.style.cssText = 'padding:15px 20px; display:flex; justify-content:space-between; align-items:center; cursor:pointer; border-left:4px solid var(--primary);';
             item.onclick = () => viewEntry(entry.id);
-            const d1 = new Date(entry.date); const d2 = new Date(); d1.setHours(0,0,0,0); d2.setHours(0,0,0,0);
-            const diff = Math.round((d2 - d1) / 86400000); 
-            const absDiff = Math.abs(diff);
-            const timeAgo = diff === 0 ? 'Today' : diff === 1 ? 'Yesterday' : `${absDiff} days ago`;
-            item.innerHTML = `<div><div style="font-weight:600;">${entry.title}</div><div style="display:flex;gap:8px;align-items:center;"><span class="badge" style="font-size:0.7rem;">${entry.category}</span><span style="font-size:0.8rem;color:var(--text-muted);">${timeAgo}</span></div></div><div style="color:var(--text-muted);">›</div>`;
-
+            const timeAgo = formatRelativeTime(entry.date);
+            item.innerHTML = `<div><div style="font-weight:600;">${entry.title}</div><div style="display:flex;gap:8px;align-items:center;"><span class="badge" style="font-size:0.7rem;">${entry.category}</span><span style="font-size:0.8rem;color:var(--text-muted);">${timeAgo}</span></div></div><div style="color:var(--text-muted);"><span class="iconify" data-icon="lucide:chevron-right"></span></div>`;
             list.appendChild(item);
         });
     }
+}
+
+function formatRelativeTime(dateString) {
+    const d1 = new Date(dateString);
+    const d2 = new Date();
+    // Reset time to ensure we compare days only
+    d1.setHours(0,0,0,0);
+    d2.setHours(0,0,0,0);
+    const diff = Math.round((d2 - d1) / 86400000);
+    const absDiff = Math.abs(diff);
+    
+    if (diff === 0) return 'Today';
+    if (diff === 1) return 'Yesterday';
+    return `${absDiff} days ago`;
 }
 
 function renderLibrary() {
@@ -460,50 +847,162 @@ function renderLibrary() {
     entries.forEach(entry => {
         const card = document.createElement('div'); card.className = `entry-card ${entry.revision ? 'needs-revision' : ''}`;
         const stars = '●'.repeat(entry.difficulty) + '○'.repeat(5 - entry.difficulty);
-        const tags = (entry.tags || []).slice(0, 3).map(t => `<span class="badge" style="background:var(--primary-light); color:var(--primary); margin-right:4px;">#${t}</span>`).join('');
-        card.innerHTML = `<div onclick="viewEntry(${entry.id})"><div style="display:flex; justify-content:space-between; align-items:start"><h3>${entry.title}</h3><div style="display:flex; gap:5px"><button class="btn-xs" onclick="editEntry(event, ${entry.id})" style="color:var(--primary); background:none; border:none; font-size:1.2rem;">✏️</button><button class="btn-xs" onclick="deleteEntry(event, ${entry.id})" style="color:red; background:none; border:none; font-size:1.2rem;">🗑️</button></div></div><div style="margin:5px 0;"><span class="badge">${entry.category}</span> ${tags}</div><p style="margin:10px 0; font-size:0.9rem; color:var(--text-muted);">${entry.notes.substring(0, 60)}...</p><div class="card-footer"><span style="color:var(--primary)">${stars}</span><span>${entry.date}</span></div></div>`;
+        const tags = (entry.tags || []).slice(0, 3).map(t => `<span class="badge" style="background:var(--primary-light); color:var(--primary); border-color: transparent;">#${t}</span>`).join('');
+        card.innerHTML = `<div onclick="viewEntry(${entry.id})">
+            <div style="display:flex; justify-content:space-between; align-items:start">
+                <h3>${entry.title}</h3>
+                <div style="display:flex; gap:5px">
+                    <button class="btn-xs" onclick="editEntry(event, ${entry.id})" style="color:var(--primary); background:none; border:none; font-size:1.2rem; display:flex; align-items:center;">
+                        <span class="iconify" data-icon="lucide:pencil"></span>
+                    </button>
+                    <button class="btn-xs" onclick="deleteEntry(event, ${entry.id})" style="color:red; background:none; border:none; font-size:1.2rem; display:flex; align-items:center;">
+                        <span class="iconify" data-icon="lucide:trash-2"></span>
+                    </button>
+                </div>
+            </div>
+            <div class="card-meta">
+                <span class="badge" style="font-weight: 700; color: var(--text-main);"><span class="iconify" data-icon="lucide:folder" style="margin-right: 4px;"></span>${entry.category}</span>
+                ${tags}
+            </div>
+            <p style="margin:10px 0; font-size:0.9rem; color:var(--text-muted); line-height: 1.5;">${entry.notes.substring(0, 80)}...</p>
+            <div class="card-footer">
+                <span style="color:var(--primary)">${stars}</span>
+                <span style="font-size: 0.8rem; font-weight: 500;">${formatRelativeTime(entry.date)}</span>
+            </div>
+        </div>`;
         list.appendChild(card);
     });
 }
 
 function parseMarkdown(text) {
     if (!text) return '';
-    let html = text.replace(/```([\s\S]*?)```/g, '<pre><button class="copy-btn" onclick="copyCode(this)">Copy</button><code>$1</code></pre>');
+    
+    // 1. Code Blocks with basic syntax highlighting
+    let html = text.replace(/```(\w*)([\s\S]*?)```/g, (match, lang, code) => {
+        // Escape HTML tags in code to prevent rendering
+        let escapedCode = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        
+        // Basic Syntax Highlighting (Keywords, Numbers, Comments)
+        // Comments (# ...)
+        escapedCode = escapedCode.replace(/(#.*$)/gm, '<span class="code-comment">$1</span>');
+        // Keywords (Python/JS mix)
+        escapedCode = escapedCode.replace(/\b(def|return|import|from|if|else|elif|for|while|const|let|var|function|async|await|class)\b/g, '<span class="code-keyword">$1</span>');
+        // Numbers
+        escapedCode = escapedCode.replace(/\b(\d+(\.\d+)?)\b/g, '<span class="code-number">$1</span>');
+        
+        return `<pre><div class="code-header"><span>${lang || 'Code'}</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><code>${escapedCode}</code></pre>`;
+    });
+
+    // 2. Inline Code
+    html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+    // 3. Headers
     html = html.replace(/^#+\s*(.*$)/gim, (match, p1) => {
         const level = match.trim().split(' ')[0].split('#').length - 1 || 1;
         const tag = level <= 3 ? `h${level}` : 'h3';
         return `<${tag}>${p1}</${tag}>`;
     });
+
+    // 4. Blockquotes
     html = html.replace(/^> (.*$)/gim, '<blockquote>$1</blockquote>');
-    html = html.replace(/\*\*(.*)\*\*/gim, '<b>$1</b>');
-    html = html.replace(/\*(.*)\*/gim, '<i>$1</i>');
-    html = html.replace(/`(.*?)`/gim, '<code>$1</code>');
+
+    // 5. Bold & Italic
+    html = html.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+    html = html.replace(/\*(.*?)\*/g, '<i>$1</i>');
+
+    // 6. Lists
     html = html.replace(/^\s*-\s+(.*$)/gim, '<li>$1</li>');
     html = html.replace(/(<li>.*<\/li>)/gim, '<ul>$1</ul>').replace(/<\/ul>\s*<ul>/gim, '');
-    html = html.replace(/\*\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-    html = html.replace(/\n/gim, '<br>');
+
+    // 7. Links
+    html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+
+    // 8. Line Breaks (only if not inside pre)
+    // We split by pre tags to avoid adding <br> inside code blocks
+    const parts = html.split(/(<pre>[\s\S]*?<\/pre>)/g);
+    html = parts.map(part => part.startsWith('<pre>') ? part : part.replace(/\n/g, '<br>')).join('');
+
     return html;
 }
 
 window.viewEntry = function(id) {
     const entry = entries.find(e => e.id === id); if (!entry) return;
-    currentViewId = id; document.getElementById('detail-title').innerText = entry.title;
-    document.getElementById('detail-category').innerText = entry.category; document.getElementById('detail-date').innerText = entry.date;
+    currentViewId = id; 
+    
+    // Reset AI Summary
+    document.getElementById('ai-summary-box').classList.add('hidden');
+    document.getElementById('ai-summary-content').innerHTML = '';
+    const sumBtn = document.getElementById('btn-summarize');
+    sumBtn.classList.remove('hidden');
+    sumBtn.disabled = false;
+    sumBtn.innerHTML = '<span class="iconify" data-icon="lucide:sparkles" style="margin-right: 6px;"></span> AI Summarize';
+
+    document.getElementById('detail-title').innerText = entry.title;
+    document.getElementById('detail-category').innerText = entry.category; 
+    document.getElementById('detail-date').innerText = entry.date;
     document.getElementById('detail-diff').innerText = '●'.repeat(entry.difficulty) + '○'.repeat(5 - entry.difficulty);
     document.getElementById('detail-content').innerHTML = parseMarkdown(entry.notes);
-    const res = document.getElementById('detail-resources'); res.innerHTML = entry.resources.length ? '<strong>🔗 Resources:</strong>' : '';
+    const res = document.getElementById('detail-resources'); res.innerHTML = entry.resources.length ? '<strong><span class="iconify" data-icon="lucide:link" style="margin-right:4px; vertical-align:middle;"></span> Resources:</strong>' : '';
     entry.resources.forEach(url => { const d = document.createElement('div'); d.innerHTML = `<a href="${url}" target="_blank" class="res-link-item">${url}</a>`; res.appendChild(d); });
     const tags = document.getElementById('detail-tags'); tags.innerHTML = '';
     entry.tags.forEach(t => { const s = document.createElement('span'); s.className = 'tag-chip'; s.innerHTML = `<span>${t}</span>`; tags.appendChild(s); });
     router('details');
 };
 
+window.summarizeEntry = async function() {
+    const entry = entries.find(e => e.id === currentViewId);
+    if (!entry || !entry.notes) return showToast("Nothing to summarize!");
+    
+    const btn = document.getElementById('btn-summarize');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="iconify" data-icon="lucide:loader-2" class="spin"></span> Summarizing...';
+    
+    try {
+        const res = await fetch(`${API_URL}/ai/summarize`, {
+            method: 'POST',
+            headers: getHeaders(),
+            body: JSON.stringify({ content: entry.notes })
+        });
+        const data = await res.json();
+        
+        if (data.summary) {
+            document.getElementById('ai-summary-content').innerHTML = parseMarkdown(data.summary);
+            document.getElementById('ai-summary-box').classList.remove('hidden');
+            btn.classList.add('hidden'); // Hide button after success
+        } else {
+            throw new Error(data.error || "No summary returned");
+        }
+    } catch (err) {
+        console.error(err);
+        showToast(`❌ AI Failed: ${err.message}`);
+        btn.disabled = false;
+        btn.innerHTML = '<span class="iconify" data-icon="lucide:sparkles"></span> Retry AI Summarize';
+    }
+};
+
 window.formatDoc = function(cmd) {
-    const ta = document.getElementById('inp-notes'); const s = ta.selectionStart; const e = ta.selectionEnd; const t = ta.value; const sel = t.substring(s, e);
-    let ins = cmd === 'bold' ? `**${sel}**` : cmd === 'italic' ? `*${sel}*` : cmd === 'code' ? '`'+sel+'`' : cmd === 'list' ? `
-- ${sel}` : `
-## ${sel}`;
-    ta.value = t.substring(0, s) + ins + t.substring(e); ta.focus(); ta.selectionEnd = e + ins.length; 
+    const ta = document.getElementById('inp-notes');
+    const start = ta.selectionStart;
+    const end = ta.selectionEnd;
+    const text = ta.value;
+    const selectedText = text.substring(start, end);
+    
+    let before = '', after = '';
+
+    switch(cmd) {
+        case 'bold': before = '**'; after = '**'; break;
+        case 'italic': before = '*'; after = '*'; break;
+        case 'code': before = '`'; after = '`'; break;
+        case 'list': before = '\n- '; after = ''; break;
+        case 'h2': before = '\n## '; after = ''; break;
+    }
+
+    ta.value = text.substring(0, start) + before + selectedText + after + text.substring(end);
+    ta.focus();
+    
+    const newPos = selectedText.length > 0 ? end + before.length + after.length : start + before.length;
+    ta.setSelectionRange(newPos, newPos);
+    window.saveDraft();
 };
 
 window.togglePreview = function() {
@@ -513,11 +1012,31 @@ window.togglePreview = function() {
 };
 
 let revisionQueue = []; let currentRevIndex = 0;
-window.startRevision = function() {
-    revisionQueue = entries.filter(e => e.revision); router('revision');
-    const listC = document.getElementById('revision-list-container'); const sessC = document.getElementById('revision-session-container'); const empty = document.getElementById('revision-empty');
-    if (revisionQueue.length === 0) { listC.classList.add('hidden'); sessC.classList.add('hidden'); empty.classList.remove('hidden'); }
-    else { empty.classList.add('hidden'); sessC.classList.add('hidden'); listC.classList.remove('hidden'); renderRevisionList(); }
+window.startRevision = async function() {
+    showLoading();
+    try {
+        const res = await fetch(`${API_URL}/entries?limit=100&revision=true`, { headers: getHeaders() });
+        const data = await res.json();
+        revisionQueue = data.data.map(e => ({
+            ...e, id: e.entry_id, category: e.category_name || 'General', date: e.learning_date, notes: e.notes_markdown, difficulty: e.difficulty_level, revision: e.needs_revision, tags: e.tags || [], resources: e.resources || []
+        }));
+        
+        router('revision');
+        const listC = document.getElementById('revision-list-container'); 
+        const sessC = document.getElementById('revision-session-container'); 
+        const empty = document.getElementById('revision-empty');
+        
+        if (revisionQueue.length === 0) { 
+            listC.classList.add('hidden'); sessC.classList.add('hidden'); empty.classList.remove('hidden'); 
+        } else { 
+            empty.classList.add('hidden'); sessC.classList.add('hidden'); listC.classList.remove('hidden'); 
+            renderRevisionList(); 
+        }
+    } catch (e) {
+        showToast("❌ Could not load revision items");
+    } finally {
+        hideLoading();
+    }
 };
 
 function renderRevisionList() {
@@ -556,12 +1075,28 @@ window.processRevision = async function(keep) {
 };
 
 function renderHeatmap() {
-    const grid = document.getElementById('heatmap-grid'); if (!grid || !stats.heatmap) return;
-    grid.innerHTML = ''; const today = new Date(); today.setHours(0,0,0,0); const start = new Date(today); start.setDate(today.getDate() - 364); while(start.getDay() !== 0) start.setDate(start.getDate() - 1);
-    const activityMap = {}; stats.heatmap.forEach(h => { activityMap[h.learning_date] = parseInt(h.count); });
+    const grid = document.getElementById('heatmap-grid'); 
+    
+    if (!grid || !stats.heatmap) return;
+    grid.innerHTML = ''; 
+    const today = new Date(); today.setHours(0,0,0,0); 
+    const start = new Date(today); start.setDate(today.getDate() - 364); 
+    while(start.getDay() !== 0) start.setDate(start.getDate() - 1);
+    
+    const activityMap = {}; 
+    stats.heatmap.forEach(h => { activityMap[h.learning_date] = parseInt(h.count); });
+    
     for (let i = 0; i < 371; i++) {
-        const curr = new Date(start); curr.setDate(start.getDate() + i); const ds = curr.toISOString().split('T')[0]; const count = activityMap[ds] || 0;
-        const cell = document.createElement('div'); cell.className = `h-cell level-${count > 6 ? 4 : count > 4 ? 3 : count > 2 ? 2 : count > 0 ? 1 : 0}`; cell.title = `${ds}: ${count}`; grid.appendChild(cell);
+        const curr = new Date(start); curr.setDate(start.getDate() + i); 
+        const ds = curr.toISOString().split('T')[0]; 
+        const count = activityMap[ds] || 0;
+        const cell = document.createElement('div'); 
+        cell.className = `h-cell level-${count > 6 ? 4 : count > 4 ? 3 : count > 2 ? 2 : count > 0 ? 1 : 0}`; 
+        
+        const options = { month: 'short', day: 'numeric', year: 'numeric' };
+        const friendlyDate = curr.toLocaleDateString(undefined, options);
+        cell.title = `${friendlyDate}: ${count} entries`; 
+        grid.appendChild(cell);
     }
 }
 
@@ -594,6 +1129,3 @@ function initAIResize() {
     document.addEventListener('mousemove', (e) => { if (!isResizing) return; const newWidth = window.innerWidth - e.clientX - 30; if (newWidth > 300 && newWidth < window.innerWidth * 0.8) panel.style.width = `${newWidth}px`; });
     document.addEventListener('mouseup', () => { isResizing = false; document.body.style.cursor = 'default'; document.body.style.userSelect = 'auto'; });
 }
-
-window.showLogin = function() { document.getElementById('landing-page').classList.add('hidden'); document.getElementById('login-overlay').classList.remove('hidden'); };
-window.hideLogin = function() { document.getElementById('login-overlay').classList.add('hidden'); document.getElementById('landing-page').classList.remove('hidden'); };
