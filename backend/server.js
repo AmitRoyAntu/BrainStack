@@ -367,8 +367,13 @@ app.delete('/api/danger/clear-all', checkAuth, async (req, res) => {
 });
 
 app.delete('/api/entries/:id', checkAuth, async (req, res) => {
-    try { await pool.query('DELETE FROM entries WHERE entry_id = $1 AND user_id = $2', [req.params.id, req.user.id]); res.json({ success: true }); }
-    catch (e) { res.status(500).json({ error: 'Delete failed' }); }
+    try {
+        await pool.query('DELETE FROM entries WHERE entry_id = $1 AND user_id = $2', [req.params.id, req.user.id]);
+        res.json({ success: true });
+    } catch (e) {
+        console.error("Delete Entry Error:", e);
+        res.status(500).json({ error: 'Delete failed' });
+    }
 });
 
 // 7. PROFILE

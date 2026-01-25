@@ -6,14 +6,14 @@ BrainStack is a professional, full-stack personal knowledge management system de
 
 ## 🚀 Key Features
 
-- **🤖 Global AI Brain:** A context-aware assistant powered by **Groq (Llama 3.3)** that has read all your notes and can answer questions, provide examples, or quiz you.
-- **🔒 Secure Authentication:** Standard Email & Password login secured with **JSON Web Tokens (JWT)** and a 7-day session memory.
-- **📊 Professional Analytics:** Interactive **Chart.js** visualizations showing your category distribution and learning activity.
-- **🔥 Consistency Heatmap:** A GitHub-style activity grid to track your learning streak and daily consistency over the entire year.
-- **✍️ Advanced Markdown Editor:** Full Markdown support with live preview, auto-expanding text area, and **one-click code copying**.
-- **📱 Ultra-Responsive UI:** Fully polished for mobile and desktop with dynamic scaling typography and an adaptive layout.
-- **⚡ Performance Optimized:** Server-side pagination (15 items/page), debounced search, and parallelized data fetching for instant load times.
-- **💾 Data Portability:** Full JSON Export and Import functionality for local backups.
+- **🤖 Global AI Brain:** A context-aware assistant powered by **Groq (Llama 3.3)**. It retrieves relevant context from your notes using advanced keyword extraction to provide precise answers, summaries, and code snippets in beautiful Markdown.
+- **📊 Professional Analytics:** Interactive **Chart.js** visualizations. Track category distribution, 7-day learning activity, and long-term consistency via a GitHub-style **Activity Heatmap**.
+- **🔍 Intelligent Search:** Powerful server-side "search-as-you-type" functionality. Filter your entire knowledge base by category, difficulty, or content with sub-second latency.
+- **✍️ Advanced Markdown Editor:** Full Markdown support with live preview, intelligent text wrapping for formatting, and **automatic draft restoration**.
+- **🛡️ Data Protection:** Includes **Navigation Guards** to prevent losing unsaved notes and a robust **Auto-Save** system.
+- **🔒 Secure Authentication:** Standard Email & Password login secured with **JSON Web Tokens (JWT)**.
+- **📱 Mobile-First Design:** Fully polished, ultra-responsive UI with smooth slide-in animations and adaptive layouts for a native-app feel on mobile.
+- **💾 Data Portability:** High-reliability JSON Export and Import using modern Blob technology for seamless backups and restoration.
 
 ---
 
@@ -22,7 +22,7 @@ BrainStack is a professional, full-stack personal knowledge management system de
 - **Frontend:** Vanilla JavaScript (ES6+), HTML5, CSS3 (Custom Glassmorphism).
 - **Backend:** Node.js, Express.js.
 - **AI:** Groq SDK (Llama 3.3 70B model).
-- **Database:** PostgreSQL (Optimized for Supabase/Neon).
+- **Database:** PostgreSQL (Optimized with performance indexes).
 - **Charts:** Chart.js.
 
 ---
@@ -47,7 +47,7 @@ BrainStack is a professional, full-stack personal knowledge management system de
    PORT=3000
    ```
 5. **Set up the Database:**
-   Run the SQL code in `backend/database_schema.sql` in your PostgreSQL editor (e.g., Supabase SQL Editor).
+   Run the SQL code in `backend/database_schema.sql` in your PostgreSQL editor (e.g., Supabase SQL Editor). This will create all necessary tables and **performance indexes**.
 6. **Start the server:**
    ```bash
    node server.js

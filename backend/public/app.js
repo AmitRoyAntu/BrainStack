@@ -11,6 +11,7 @@ let currentTags = [];
 
 let lastView = 'dashboard';
 let currentViewId = null;
+let isSaving = false;
 
 // Pagination State
 let currentPage = 1;
@@ -151,22 +152,6 @@ function _router(viewName) {
     if (viewName === 'settings') loadProfileIntoForm();
 }
 
-window.router = function(viewName) {
-    if (hasUnsavedChanges() && !confirm("You have unsaved changes. Discard them?")) {
-        return;
-    }
-    _router(viewName);
-};
-
-// Navigation Guard
-function hasUnsavedChanges() {
-    const title = document.getElementById('inp-title')?.value;
-    const notes = document.getElementById('inp-notes')?.value;
-    const isAdding = document.querySelector('.view.active')?.id === 'view-add';
-    return isAdding && (title || notes);
-}
-
-const originalRouter = router;
 window.router = function(viewName) {
     if (hasUnsavedChanges() && !confirm("You have unsaved changes. Discard them?")) {
         return;
@@ -415,6 +400,7 @@ window.toggleCategoryInput = function() {
 
 // Navigation Guard
 function hasUnsavedChanges() {
+    if (isSaving) return false;
     const title = document.getElementById('inp-title')?.value;
     const notes = document.getElementById('inp-notes')?.value;
     const isAdding = document.querySelector('.view.active')?.id === 'view-add';
@@ -482,6 +468,7 @@ if (addForm) {
 
     addForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        isSaving = true; // Set flag to bypass guard
         const btn = document.getElementById('btn-save'); btn.innerText = 'Wait...'; btn.disabled = true;
         const select = document.getElementById('inp-category'); const input = document.getElementById('inp-new-category');
         let finalCategory = input.classList.contains('hidden') ? select.value : input.value.trim();
@@ -502,8 +489,9 @@ if (addForm) {
             // Standard behavior: go back or view entry.
             if (entryId) viewEntry(Number(entryId)); else { resetAddForm(); setTimeout(() => goBack(), 500); }
             
-            document.getElementById('btn-save').disabled = false;
+            btn.disabled = false;
         } catch (err) { showToast("❌ Error saving"); btn.disabled = false; }
+        finally { isSaving = false; }
     });
 }
 
@@ -1176,7 +1164,15 @@ window.processRevision = async function(keep) {
     const entry = revisionQueue[currentRevIndex];
     if (!keep) {
         try {
-            await fetch(`${API_URL}/entries/${entry.id}`, { method: 'PUT', headers: getHeaders(), body: JSON.stringify({ ...entry, needs_revision: false }) });
+            await fetch(`${API_URL}/entries/${entry.id}`, { 
+                method: 'PUT', 
+                headers: getHeaders(), 
+                body: JSON.stringify({ 
+                    ...entry, 
+                    category_name: entry.category, // Map category to category_name
+                    needs_revision: false 
+                }) 
+            });
             const real = entries.find(e => e.id === entry.id); if(real) real.revision = false; fetchStats();
         } catch (e) { console.error(e); }
     }
