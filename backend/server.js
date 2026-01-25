@@ -170,13 +170,13 @@ app.get('/api/stats', checkAuth, async (req, res) => {
         const dates = streakRes.rows.map(r => r.date);
         if (dates.length > 0 && userToday) {
             let yesterday = new Date(userToday); yesterday.setDate(yesterday.getDate() - 1);
-            let yestStr = yesterday.toLocaleDateString('en-CA');
+            let yestStr = yesterday.toISOString().split('T')[0];
             let check = dates[0] === userToday ? userToday : (dates[0] === yestStr ? yestStr : null);
             if (check) {
                 streak = 1; let curr = new Date(check);
                 for (let i = dates.indexOf(check) + 1; i < dates.length; i++) {
                     curr.setDate(curr.getDate()-1);
-                    if (dates[i] === curr.toLocaleDateString('en-CA')) streak++; else break;
+                    if (dates[i] === curr.toISOString().split('T')[0]) streak++; else break;
                 }
             }
         }
@@ -209,26 +209,65 @@ app.post('/api/ai/global-chat', checkAuth, async (req, res) => {
     try {
         const userId = req.user.id;
         const { message, history } = req.body;
-        let searchContext = message;
-        if (history && history.length > 0) {
-            const lastUserMsg = history.filter(h => h.role === 'user').slice(-1)[0];
-            if (lastUserMsg) searchContext += " " + lastUserMsg.content;
+        
+        // 1. Better Keyword Extraction for Context Retrieval
+        const cleanMsg = message.toLowerCase().replace(/[^\w\s]/gi, '');
+        const stopwords = new Set(['what', 'is', 'how', 'tell', 'me', 'about', 'the', 'this', 'that', 'with']);
+        const keywords = cleanMsg.split(' ')
+            .filter(w => w.length > 2 && !stopwords.has(w))
+            .sort((a,b) => b.length - a.length);
+        
+        const topKeyword = keywords[0] || message.split(' ')[0] || '';
+
+        // 2. Fetch Relevant Context
+        let notesRes = await pool.query(
+            `SELECT title, notes_markdown as content FROM entries 
+             WHERE user_id = $1 AND (title ILIKE $2 OR notes_markdown ILIKE $2) 
+             ORDER BY updated_at DESC LIMIT 10`, 
+            [userId, `%${topKeyword}%`]
+        );
+        
+        if (notesRes.rows.length === 0) {
+            notesRes = await pool.query(
+                'SELECT title, notes_markdown as content FROM entries WHERE user_id = $1 ORDER BY updated_at DESC LIMIT 5', 
+                [userId]
+            );
         }
-        const keywords = searchContext.split(' ').filter(w => w.length > 3).sort((a,b) => b.length - a.length);
-        const topKeyword = keywords[0] || searchContext.split(' ')[0];
 
-        let notesRes = await pool.query(`SELECT title, notes_markdown as content FROM entries WHERE user_id = $1 AND (title ILIKE $2 OR notes_markdown ILIKE $2) ORDER BY updated_at DESC LIMIT 10`, [userId, `%${topKeyword}%`]);
-        if (notesRes.rows.length === 0) notesRes = await pool.query('SELECT title, notes_markdown as content FROM entries WHERE user_id = $1 ORDER BY updated_at DESC LIMIT 10', [userId]);
+        const context = notesRes.rows.map(n => `### ${n.title}\n${n.content}`).join('\n\n---\n\n');
+        
+        const messages = [
+            { 
+                role: "system", 
+                content: `You are "BrainStack AI", a professional second-brain assistant. 
+                Use the following notes from the user's library to answer their question. 
+                If the answer isn't in the notes, use your general knowledge but mention it's not in their notes.
+                FORMATTING: Use clear Markdown. Use code blocks for any technical snippets.
+                
+                USER NOTES CONTEXT:
+                ${context}` 
+            }
+        ];
 
-        const context = notesRes.rows.map(n => `Title: ${n.title}\nContent: ${n.content}`).join('\n\n---\n\n');
-        const messages = [{ role: "system", content: `You are "BrainStack AI", a professional learning assistant. Use the user's notes below to answer questions. FORMATTING: Use standard Markdown (# Header, ## Section). ALWAYS space after #. Bullet points for lists. Code blocks for technical details.\n\nNOTES CONTEXT:\n${context}` }];
-
-        if (history) history.slice(-6).forEach(msg => messages.push({ role: msg.role, content: msg.content }));
+        // 3. Append History (Limit to last 6 messages for token efficiency)
+        if (history && Array.isArray(history)) {
+            history.slice(-6).forEach(msg => messages.push({ role: msg.role, content: msg.content }));
+        }
+        
         messages.push({ role: "user", content: message });
 
-        const completion = await groq.chat.completions.create({ messages, model: "llama-3.3-70b-versatile" });
-        res.json({ text: completion.choices[0]?.message?.content || "No response" });
-    } catch (err) { res.status(500).json({ error: 'AI error' }); }
+        const completion = await groq.chat.completions.create({ 
+            messages, 
+            model: "llama-3.3-70b-versatile",
+            temperature: 0.7,
+            max_tokens: 1024
+        });
+
+        res.json({ text: completion.choices[0]?.message?.content || "I couldn't generate a response." });
+    } catch (err) { 
+        console.error("AI Chat Error:", err);
+        res.status(500).json({ error: 'AI Assistant is currently unavailable.' }); 
+    }
 });
 
 app.post('/api/ai/summarize', checkAuth, async (req, res) => {

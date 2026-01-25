@@ -121,7 +121,7 @@ async function fetchStats() {
 // ========================================== 
 // 3. ROUTING SYSTEM
 // ========================================== 
-function router(viewName) {
+function _router(viewName) {
     const activeView = document.querySelector('.view.active');
     if (activeView && activeView.id !== `view-${viewName}`) lastView = activeView.id.replace('view-', '');
     document.querySelectorAll('.view').forEach(view => { view.classList.add('hidden'); view.classList.remove('active'); });
@@ -150,6 +150,13 @@ function router(viewName) {
     if (viewName === 'library') renderLibrary();
     if (viewName === 'settings') loadProfileIntoForm();
 }
+
+window.router = function(viewName) {
+    if (hasUnsavedChanges() && !confirm("You have unsaved changes. Discard them?")) {
+        return;
+    }
+    _router(viewName);
+};
 
 function getTodayString() { return new Date().toLocaleDateString('en-CA'); }
 window.goBack = function() { router(lastView || 'dashboard'); };
@@ -361,9 +368,25 @@ window.resetFilters = function() {
 window.toggleCategoryInput = function() {
     const select = document.getElementById('inp-category');
     const input = document.getElementById('inp-new-category');
-    if (input.classList.contains('hidden')) { select.classList.add('hidden'); input.classList.remove('hidden'); input.focus(); }
-    else { select.classList.remove('hidden'); input.classList.add('hidden'); }
+    if (input.classList.contains('hidden')) { 
+        select.classList.add('hidden'); 
+        input.classList.remove('hidden'); 
+        input.focus();
+        select.value = ''; // Clear selection when typing new
+    } else { 
+        select.classList.remove('hidden'); 
+        input.classList.add('hidden'); 
+        input.value = ''; // Clear manual input when using select
+    }
 };
+
+// Navigation Guard
+function hasUnsavedChanges() {
+    const title = document.getElementById('inp-title')?.value;
+    const notes = document.getElementById('inp-notes')?.value;
+    const isAdding = document.querySelector('.view.active')?.id === 'view-add';
+    return isAdding && (title || notes);
+}
 
 const diffInput = document.getElementById('inp-difficulty');
 if (diffInput) {
@@ -690,6 +713,14 @@ window.restoreDraft = function() {
     } catch (e) { console.error("Draft restore error", e); }
 };
 
+window.discardForm = function() {
+    if (confirm("Clear this form and discard draft?")) {
+        window.clearDraft();
+        resetAddForm();
+        showToast("Draft discarded");
+    }
+};
+
 window.resetAddForm = function() {
     document.getElementById('add-form').reset(); document.getElementById('inp-date').value = getTodayString();
     document.getElementById('inp-id').value = ''; document.getElementById('btn-save').innerText = 'Save Entry';
@@ -792,22 +823,37 @@ function renderDashboard() {
         const ctxAct = document.getElementById('chart-activity');
         if (ctxAct) {
             if (activityChart) activityChart.destroy();
-            activityChart = new Chart(ctxAct, {
-                type: 'bar', 
-                data: { 
-                    labels: last7Days.map(d => d.label), 
-                    datasets: [{ label: 'Entries', data: last7Days.map(d => d.count), backgroundColor: 'rgba(99, 102, 241, 0.8)', borderRadius: 6 }] 
-                },
-                options: { 
-                    responsive: true, 
-                    maintainAspectRatio: false, 
-                    scales: { 
-                        y: { beginAtZero: true, ticks: { stepSize: 1, color: textColor }, grid: { display: false } }, 
-                        x: { ticks: { color: textColor }, grid: { display: false } } 
-                    }, 
-                    plugins: { legend: { display: false } } 
+            if (stats.activity.length === 0) {
+                ctxAct.style.display = 'none';
+                if (!document.getElementById('act-empty-msg')) {
+                    const msg = document.createElement('div');
+                    msg.id = 'act-empty-msg';
+                    msg.style.cssText = 'height:100%; display:flex; align-items:center; justify-content:center; color:var(--text-muted); font-style:italic;';
+                    msg.innerText = 'Keep learning to see activity';
+                    ctxAct.parentElement.appendChild(msg);
                 }
-            });
+            } else {
+                ctxAct.style.display = 'block';
+                const existingMsg = document.getElementById('act-empty-msg');
+                if (existingMsg) existingMsg.remove();
+                
+                activityChart = new Chart(ctxAct, {
+                    type: 'bar', 
+                    data: { 
+                        labels: last7Days.map(d => d.label), 
+                        datasets: [{ label: 'Entries', data: last7Days.map(d => d.count), backgroundColor: 'rgba(99, 102, 241, 0.8)', borderRadius: 6 }] 
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false, 
+                        scales: { 
+                            y: { beginAtZero: true, ticks: { stepSize: 1, color: textColor }, grid: { display: false } }, 
+                            x: { ticks: { color: textColor }, grid: { display: false } } 
+                        }, 
+                        plugins: { legend: { display: false } } 
+                    }
+                });
+            }
         }
     } catch (e) { console.error("Chart error:", e); }
 
@@ -1107,13 +1153,38 @@ window.copyCode = function(btn) {
 
 window.toggleAIChat = function() { const p = document.getElementById('ai-panel'); p.classList.toggle('hidden'); if (!p.classList.contains('hidden')) { document.getElementById('ai-input').focus(); initAIResize(); } };
 window.sendAIMessage = async function() {
-    const input = document.getElementById('ai-input'); const msg = input.value.trim(); if (!msg) return;
-    addAIBubble(msg, 'user'); chatHistory.push({ role: "user", content: msg }); input.value = '';
-    const typingId = 'ai-t-' + Date.now(); addAIBubble('<div class="typing-dots"><span></span><span></span><span></span></div>', 'bot', typingId);
+    const input = document.getElementById('ai-input'); 
+    const msg = input.value.trim(); 
+    if (!msg) return;
+
+    addAIBubble(msg, 'user'); 
+    chatHistory.push({ role: "user", content: msg }); 
+    input.value = ''; 
+    
+    const typingId = 'ai-t-' + Date.now(); 
+    addAIBubble('<div class="typing-dots"><span></span><span></span><span></span></div>', 'bot', typingId);
+    
     try {
-        const res = await fetch(`${API_URL}/ai/global-chat`, { method: 'POST', headers: getHeaders(), body: JSON.stringify({ message: msg, history: chatHistory }) });
-        const data = await res.json(); document.getElementById(typingId).remove(); const botResponse = data.text || 'Sorry, error.'; addAIBubble(botResponse, 'bot'); chatHistory.push({ role: "assistant", content: botResponse });
-    } catch (e) { document.getElementById(typingId).remove(); addAIBubble('❌ Failed.', 'bot'); }
+        const res = await fetch(`${API_URL}/ai/global-chat`, { 
+            method: 'POST', 
+            headers: getHeaders(), 
+            body: JSON.stringify({ message: msg, history: chatHistory }) 
+        });
+        
+        const data = await res.json();
+        const typingEl = document.getElementById(typingId);
+        if (typingEl) typingEl.remove();
+        
+        if (!res.ok) throw new Error(data.error || "Connection lost");
+
+        const botResponse = data.text || 'I am sorry, I could not generate a response.'; 
+        addAIBubble(botResponse, 'bot'); 
+        chatHistory.push({ role: "assistant", content: botResponse });
+    } catch (e) { 
+        const typingEl = document.getElementById(typingId);
+        if (typingEl) typingEl.remove();
+        addAIBubble(`❌ **Error:** ${e.message}. Please try again.`, 'bot'); 
+    }
 };
 
 function addAIBubble(text, type, id = null) {
