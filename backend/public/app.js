@@ -225,13 +225,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const globalSearch = document.getElementById('globalSearch');
     const clearBtn = document.getElementById('search-clear');
+    let searchTimeout;
+
     if (globalSearch) {
-        globalSearch.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') { fetchEntries(true); if (document.querySelector('.view.active').id !== 'view-library') router('library'); }
-        });
         globalSearch.addEventListener('input', () => {
             if (globalSearch.value.trim().length > 0) clearBtn.classList.remove('hidden');
             else clearBtn.classList.add('hidden');
+
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                fetchEntries(true);
+                if (document.querySelector('.view.active').id !== 'view-library' && globalSearch.value.trim().length > 0) {
+                    router('library');
+                }
+            }, 500);
+        });
+
+        globalSearch.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { 
+                clearTimeout(searchTimeout);
+                fetchEntries(true); 
+                if (document.querySelector('.view.active').id !== 'view-library') router('library'); 
+            }
         });
     }
 });
@@ -312,8 +327,10 @@ window.logout = function() {
 };
 
 window.clearSearch = function() {
-    const input = document.getElementById('globalSearch'); input.value = '';
-    document.getElementById('search-clear').classList.add('hidden'); fetchEntries(true);
+    const input = document.getElementById('globalSearch'); 
+    input.value = '';
+    document.getElementById('search-clear').classList.add('hidden'); 
+    fetchEntries(true);
 };
 
 window.renderSidebarNav = function() {
