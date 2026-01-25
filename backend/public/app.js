@@ -171,11 +171,16 @@ window.toggleSidebar = function() {
         // Mobile: Slide In/Out
         const sidebar = document.querySelector('.sidebar');
         const overlay = document.getElementById('sidebar-overlay');
+        const aiPanel = document.getElementById('ai-panel');
         
         sidebar.classList.toggle('open');
         
         if (sidebar.classList.contains('open')) {
             overlay.classList.remove('hidden');
+            // Close AI chat if opening sidebar on mobile
+            if (aiPanel && !aiPanel.classList.contains('hidden')) {
+                aiPanel.classList.add('hidden');
+            }
             // Small timeout to allow display:block to apply before opacity transition
             setTimeout(() => overlay.classList.add('active'), 10);
         } else {
@@ -255,6 +260,8 @@ document.addEventListener('DOMContentLoaded', () => {
 async function initApp() {
     document.getElementById('landing-page').classList.add('hidden');
     document.querySelector('.app-container').classList.remove('hidden'); // Reveal app only now
+    const aiFab = document.querySelector('.ai-fab');
+    if (aiFab) aiFab.classList.remove('hidden');
     fetchEntries(true);
     fetchProfile();
     fetchCategories();
@@ -979,13 +986,14 @@ function parseMarkdown(text) {
         // Escape HTML tags in code to prevent rendering
         let escapedCode = code.replace(/</g, '&lt;').replace(/>/g, '&gt;');
         
-        // Basic Syntax Highlighting (Keywords, Numbers, Comments)
-        // Comments (# ...)
-        escapedCode = escapedCode.replace(/(#.*$)/gm, '<span class="code-comment">$1</span>');
-        // Keywords (Python/JS mix)
-        escapedCode = escapedCode.replace(/\b(def|return|import|from|if|else|elif|for|while|const|let|var|function|async|await|class)\b/g, '<span class="code-keyword">$1</span>');
-        // Numbers
-        escapedCode = escapedCode.replace(/\b(\d+(\.\d+)?)\b/g, '<span class="code-number">$1</span>');
+        // Basic Syntax Highlighting (Single Pass to avoid double-matching inserted tags)
+        const combinedRegex = /(#.*$)|(\b(?:def|return|import|from|if|else|elif|for|while|const|let|var|function|async|await|class)\b)|(\b\d+(?:\.\d+)?\b)/gm;
+        escapedCode = escapedCode.replace(combinedRegex, (match, comment, keyword, number) => {
+            if (comment) return `<span class="code-comment">${comment}</span>`;
+            if (keyword) return `<span class="code-keyword">${keyword}</span>`;
+            if (number) return `<span class="code-number">${number}</span>`;
+            return match;
+        });
         
         return `<pre><div class="code-header"><span>${lang || 'Code'}</span><button class="copy-btn" onclick="copyCode(this)">Copy</button></div><code>${escapedCode}</code></pre>`;
     });
@@ -1210,7 +1218,18 @@ window.copyCode = function(btn) {
     navigator.clipboard.writeText(text).then(() => { const originalText = btn.innerText; btn.innerText = 'Copied!'; btn.classList.add('copied'); setTimeout(() => { btn.innerText = originalText; btn.classList.remove('copied'); }, 2000); });
 };
 
-window.toggleAIChat = function() { const p = document.getElementById('ai-panel'); p.classList.toggle('hidden'); if (!p.classList.contains('hidden')) { document.getElementById('ai-input').focus(); initAIResize(); } };
+window.toggleAIChat = function() { 
+    const p = document.getElementById('ai-panel'); 
+    p.classList.toggle('hidden'); 
+    
+    if (!p.classList.contains('hidden')) { 
+        document.body.classList.add('ai-chat-open');
+        document.getElementById('ai-input').focus(); 
+        if (window.innerWidth > 768) initAIResize(); 
+    } else {
+        document.body.classList.remove('ai-chat-open');
+    }
+};
 window.clearChat = function() {
     chatHistory = [];
     document.getElementById('ai-messages').innerHTML = '<div class="ai-bubble bot">History cleared. How can I help you now?</div>';
@@ -1258,9 +1277,33 @@ function addAIBubble(text, type, id = null) {
     container.appendChild(div); container.scrollTop = container.scrollHeight;
 }
 
+let aiResizeInitialized = false;
 function initAIResize() {
-    const panel = document.getElementById('ai-panel'); const handle = document.getElementById('ai-resize-handle'); let isResizing = false;
-    handle.addEventListener('mousedown', (e) => { isResizing = true; document.body.style.cursor = 'ew-resize'; document.body.style.userSelect = 'none'; });
-    document.addEventListener('mousemove', (e) => { if (!isResizing) return; const newWidth = window.innerWidth - e.clientX - 30; if (newWidth > 300 && newWidth < window.innerWidth * 0.8) panel.style.width = `${newWidth}px`; });
-    document.addEventListener('mouseup', () => { isResizing = false; document.body.style.cursor = 'default'; document.body.style.userSelect = 'auto'; });
+    if (aiResizeInitialized) return;
+    const panel = document.getElementById('ai-panel'); 
+    const handle = document.getElementById('ai-resize-handle'); 
+    if (!handle) return;
+    
+    let isResizing = false;
+    handle.addEventListener('mousedown', (e) => { 
+        isResizing = true; 
+        document.body.style.cursor = 'ew-resize'; 
+        document.body.style.userSelect = 'none'; 
+    });
+    
+    document.addEventListener('mousemove', (e) => { 
+        if (!isResizing) return; 
+        const newWidth = window.innerWidth - e.clientX - 30; 
+        if (newWidth > 300 && newWidth < window.innerWidth * 0.8) {
+            panel.style.width = `${newWidth}px`; 
+        }
+    });
+    
+    document.addEventListener('mouseup', () => { 
+        isResizing = false; 
+        document.body.style.cursor = 'default'; 
+        document.body.style.userSelect = 'auto'; 
+    });
+    
+    aiResizeInitialized = true;
 }

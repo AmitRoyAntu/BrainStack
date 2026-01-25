@@ -279,6 +279,25 @@
     .hero-content h1 { font-size: 2.5rem; margin-bottom: 15px; }
     .hero-btns { justify-content: center; }
     .features-section, .services-section { padding: 40px 5%; }
+    
+    .form-row { grid-template-columns: 1fr !important; gap: 0; }
+    
+    .form-actions {
+        flex-direction: column-reverse;
+        align-items: stretch !important;
+        gap: 10px !important;
+    }
+    
+    .form-actions button {
+        width: 100%;
+        margin: 0;
+    }
+
+    #draft-status {
+        text-align: center;
+        margin-bottom: 5px;
+    }
+    
     /* Fix visual card shrinking */
     .visual-card { 
         height: auto; 
@@ -287,6 +306,63 @@
         padding: 20px;
     }
     .visual-body { gap: 10px; }
+
+    /* AI Panel Mobile Responsiveness - Bottom Sheet Style */
+    .ai-panel {
+        width: 100% !important; /* Override any inline styles from resizing */
+        max-width: 100%;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 80vh; /* Slightly taller for better view */
+        max-height: 80vh;
+        border-radius: 20px 20px 0 0;
+        box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.2);
+        z-index: 1001; /* Above sidebar */
+        transform: translateY(0);
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s;
+    }
+
+    .ai-panel.hidden {
+        display: none !important;
+        transform: translateY(100%);
+    }
+
+    /* Hide FAB when chat is open on mobile to avoid overlap */
+    body.ai-chat-open .ai-fab {
+        display: none;
+    }
+
+    .ai-messages {
+        padding: 15px;
+        -webkit-overflow-scrolling: touch; /* Smooth scroll for iOS */
+    }
+
+    .ai-bubble {
+        max-width: 85%;
+        font-size: 0.95rem;
+    }
+    
+    .ai-bubble.bot {
+        max-width: 100% !important;
+    }
+
+    .ai-input-area {
+        padding: 20px 15px; /* More padding for easier touch */
+        padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .ai-fab {
+        bottom: 25px;
+        right: 25px;
+        width: 60px;
+        height: 60px;
+        z-index: 999;
+    }
+
+    .ai-resize-handle {
+        display: none;
+    }
 }
 
 /* Ultra-Modern Premium Login Portal */
@@ -1283,15 +1359,16 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cur
     flex-direction: column;
     gap: 15px;
     background: var(--bg);
+    scroll-behavior: smooth;
 }
 
 .ai-bubble {
-    max-width: 85%;
     padding: 12px 16px;
     border-radius: 12px;
     font-size: 0.95rem;
     line-height: 1.5;
     word-wrap: break-word;
+    position: relative;
 }
 
 .ai-bubble.user {
@@ -1299,14 +1376,18 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cur
     background: var(--primary);
     color: white;
     border-bottom-right-radius: 2px;
+    max-width: 80%;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
 }
 
 .ai-bubble.bot {
-    align-self: flex-start;
+    align-self: stretch; /* Take both spaces */
     background: var(--card-bg);
     border: 1px solid var(--border);
     color: var(--text-main);
     border-bottom-left-radius: 2px;
+    max-width: 100% !important;
+    width: 100%;
 }
 
 .ai-input-area {
@@ -1324,6 +1405,7 @@ input[type=range]::-webkit-slider-runnable-track { width: 100%; height: 6px; cur
     padding: 10px 15px;
     border: 1px solid var(--border);
     background: var(--bg);
+    font-size: 1rem;
 }
 
 .ai-input-area button {

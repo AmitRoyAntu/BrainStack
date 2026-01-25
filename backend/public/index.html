@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>BrainStack</title>
     <link rel="stylesheet" href="style.css" />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
@@ -536,9 +536,13 @@
               <div id="detail-tags" class="tag-list"></div>
             </div>
 
-            <div class="action-row" style="margin-top: 30px; display: flex; gap: 10px;">
-              <button class="btn-sec" onclick="editEntry(null, currentViewId)" style="color: var(--primary); border-color: var(--primary); display: flex; align-items: center; gap: 6px;"><span class="iconify" data-icon="lucide:pencil"></span> Edit Entry</button>
-              <button class="btn-remove" onclick="deleteCurrentEntry()" style="width: auto; padding: 10px 20px; background: #fee2e2; color: red; display: flex; align-items: center; gap: 6px;"><span class="iconify" data-icon="lucide:trash-2"></span> Delete Entry</button>
+            <div class="action-row" style="margin-top: 30px; display: flex; gap: 12px; flex-wrap: wrap;">
+              <button class="btn-sec" onclick="editEntry(null, currentViewId)" style="color: var(--primary); border-color: var(--primary); display: flex; align-items: center; gap: 8px; flex: 1; justify-content: center; min-width: 140px;">
+                <span class="iconify" data-icon="lucide:pencil"></span> Edit Entry
+              </button>
+              <button class="btn-remove" onclick="deleteCurrentEntry()" style="width: auto; padding: 12px 24px; background: #fee2e2; color: #ef4444; display: flex; align-items: center; gap: 8px; flex: 1; justify-content: center; min-width: 140px; border-radius: 8px;">
+                <span class="iconify" data-icon="lucide:trash-2"></span> Delete Entry
+              </button>
             </div>
           </div>
         </section>
@@ -591,7 +595,7 @@
     </div>
 
     <!-- AI Assistant Floating Button -->
-    <button class="ai-fab" onclick="toggleAIChat()" title="Ask BrainStack AI">
+    <button class="ai-fab hidden" onclick="toggleAIChat()" title="Ask BrainStack AI">
         <span class="iconify" data-icon="lucide:bot-message-square" style="font-size: 1.5rem;"></span>
     </button>
 
