@@ -541,7 +541,7 @@ body { background-color: var(--bg); color: var(--text-main); height: 100vh; over
     backdrop-filter: blur(2px);
     display: none;
     opacity: 0;
-    transition: opacity 0.3s ease;
+    transition: opacity 0.4s ease;
 }
 
 #sidebar-overlay.active {
@@ -560,11 +560,11 @@ body { background-color: var(--bg); color: var(--text-main); height: 100vh; over
         left: 0;
         top: 0;
         bottom: 0;
-        width: 260px;
+        width: 280px;
         transform: translateX(-100%);
         box-shadow: 20px 0 50px rgba(0,0,0,0.1);
         z-index: 1000;
-        transition: transform 0.3s ease;
+        transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     }
     
     .sidebar.open {

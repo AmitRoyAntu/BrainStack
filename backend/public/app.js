@@ -571,16 +571,46 @@ window.saveProfile = async function() {
 };
 
 window.exportData = async function() {
+    const btn = document.querySelector('button[onclick="exportData()"]');
+    const originalText = btn ? btn.innerText : '⬇️ Export';
+    
+    if (btn) {
+        btn.disabled = true;
+        btn.innerText = 'Preparing...';
+    }
+
     try {
-        showToast("📦 Preparing full backup...");
+        showToast("📦 Preparing your second brain backup...");
         const res = await fetch(`${API_URL}/export`, { headers: getHeaders() });
-        if (!res.ok) throw new Error("Export failed");
+        if (!res.ok) throw new Error("Server failed to generate export");
+        
         const fullData = await res.json();
-        const exportFormat = fullData.map(e => ({ title: e.title, category: e.category_name, date: e.learning_date, notes: e.notes_markdown, difficulty: e.difficulty_level, revision: e.needs_revision, tags: e.tags, resources: e.resources }));
-        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportFormat, null, 2));
-        const dl = document.createElement('a'); dl.setAttribute("href", dataStr); dl.setAttribute("download", `brainstack_full_backup_${getTodayString()}.json`); dl.click();
-        showToast("✅ Full backup downloaded!");
-    } catch (err) { showToast("❌ Backup failed"); }
+        
+        // Use Blob for better reliability with larger data sets
+        const blob = new Blob([JSON.stringify(fullData, null, 2)], { type: 'application/json' });
+        const url = window.URL.createObjectURL(blob);
+        
+        const dl = document.createElement('a');
+        dl.style.display = 'none';
+        dl.href = url;
+        dl.download = `brainstack_backup_${getTodayString()}.json`;
+        
+        document.body.appendChild(dl);
+        dl.click();
+        
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(dl);
+        
+        showToast("✅ Backup downloaded successfully!");
+    } catch (err) {
+        console.error("Export Error:", err);
+        showToast(`❌ Backup failed: ${err.message}`);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerText = originalText;
+        }
+    }
 };
 
 window.importData = function(input) {
