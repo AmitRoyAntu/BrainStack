@@ -8,6 +8,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/turndown/dist/turndown.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   </head>
   <body>
     <!-- Landing Page Section -->
@@ -391,19 +393,23 @@
 
               <!-- Content Editor -->
               <div class="input-group">
-                <label class="label-text">Notes (Markdown)</label>
+                <label class="label-text">Notes</label>
                 <div class="markdown-editor">
                   <div class="toolbar">
-                    <div class="tools">
+                    <div class="tools" id="md-tools">
                       <button type="button" onclick="formatDoc('bold')"><b>B</b></button>
                       <button type="button" onclick="formatDoc('italic')"><i>I</i></button>
                       <button type="button" onclick="formatDoc('code')">&lt;/&gt;</button>
                       <button type="button" onclick="formatDoc('list')"><span class="iconify" data-icon="lucide:list"></span></button>
                       <button type="button" onclick="formatDoc('h2')">H2</button>
                     </div>
-                    <button type="button" class="btn-xs" onclick="togglePreview()">👁️ Preview</button>
+                    <div style="display: flex; gap: 8px;">
+                        <button type="button" class="btn-xs" id="btn-toggle-visual" onclick="toggleVisualEditor()">✨ Visual Editor</button>
+                        <button type="button" class="btn-xs" onclick="togglePreview()">👁️ Preview</button>
+                    </div>
                   </div>
-                  <textarea id="inp-notes" placeholder="# Write your notes..." rows="12"></textarea>
+                  <textarea id="inp-notes" placeholder="# Write your notes in Markdown..." rows="12"></textarea>
+                  <div id="inp-notes-visual" class="visual-editor hidden" contenteditable="true" placeholder="Paste rich text or type here..."></div>
                   <div id="preview-panel" class="preview-box markdown-body hidden"></div>
                 </div>
               </div>

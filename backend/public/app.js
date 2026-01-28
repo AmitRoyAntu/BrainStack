@@ -229,6 +229,11 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    const visualArea = document.getElementById('inp-notes-visual');
+    if (visualArea) {
+        visualArea.addEventListener('input', () => window.saveVisualDraft());
+    }
+
     const globalSearch = document.getElementById('globalSearch');
     const clearBtn = document.getElementById('search-clear');
     let searchTimeout;
@@ -518,6 +523,13 @@ if (addForm) {
 
     addForm.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        // Sync visual editor if active
+        const visual = document.getElementById('inp-notes-visual');
+        if (!visual.classList.contains('hidden') && typeof turndownService !== 'undefined') {
+            document.getElementById('inp-notes').value = turndownService.turndown(visual.innerHTML);
+        }
+
         isSaving = true; // Set flag to bypass guard
         const btn = document.getElementById('btn-save'); btn.innerText = 'Wait...'; btn.disabled = true;
         const select = document.getElementById('inp-category'); const input = document.getElementById('inp-new-category');
@@ -1155,8 +1167,83 @@ window.formatDoc = function(cmd) {
 
 window.togglePreview = function() {
     const ta = document.getElementById('inp-notes'); const p = document.getElementById('preview-panel');
-    if (ta.classList.contains('hidden')) { ta.classList.remove('hidden'); p.classList.add('hidden'); }
-    else { ta.classList.add('hidden'); p.classList.remove('hidden'); p.innerHTML = parseMarkdown(ta.value) || 'Preview...'; }
+    const visual = document.getElementById('inp-notes-visual');
+    const toggleBtn = document.getElementById('btn-toggle-visual');
+
+    // If visual editor is active, turn it off first
+    if (!visual.classList.contains('hidden')) {
+        toggleVisualEditor();
+    }
+
+    if (ta.classList.contains('hidden')) { 
+        ta.classList.remove('hidden'); 
+        p.classList.add('hidden'); 
+    }
+    else { 
+        ta.classList.add('hidden'); 
+        p.classList.remove('hidden'); 
+        p.innerHTML = parseMarkdown(ta.value) || 'Preview...'; 
+    }
+};
+
+let turndownService;
+window.toggleVisualEditor = function() {
+    const ta = document.getElementById('inp-notes');
+    const visual = document.getElementById('inp-notes-visual');
+    const preview = document.getElementById('preview-panel');
+    const tools = document.getElementById('md-tools');
+    const btn = document.getElementById('btn-toggle-visual');
+
+    if (!turndownService) {
+        turndownService = new TurndownService({ headingStyle: 'atx', codeBlockStyle: 'fenced' });
+    }
+
+    if (visual.classList.contains('hidden')) {
+        // Switch TO Visual Editor
+        // 1. Hide textarea and preview
+        ta.classList.add('hidden');
+        preview.classList.add('hidden');
+        
+        // 2. Show Visual Editor
+        visual.classList.remove('hidden');
+        tools.classList.add('hidden'); // Hide MD tools in visual mode
+        btn.innerHTML = '📝 Markdown Mode';
+        btn.classList.add('active');
+
+        // 3. Convert MD -> HTML
+        const md = ta.value;
+        // Use 'marked' if available, otherwise fallback to simple parse
+        if (typeof marked !== 'undefined') {
+            visual.innerHTML = marked.parse(md);
+        } else {
+            visual.innerHTML = parseMarkdown(md);
+        }
+    } else {
+        // Switch BACK to Markdown
+        // 1. Convert HTML -> MD
+        const html = visual.innerHTML;
+        const md = turndownService.turndown(html);
+        ta.value = md;
+
+        // 2. Toggle UI
+        visual.classList.add('hidden');
+        ta.classList.remove('hidden');
+        tools.classList.remove('hidden');
+        btn.innerHTML = '✨ Visual Editor';
+        btn.classList.remove('active');
+        
+        // Trigger auto-save
+        window.saveDraft();
+    }
+};
+
+window.saveVisualDraft = function() {
+    const visual = document.getElementById('inp-notes-visual');
+    if (!visual.classList.contains('hidden') && turndownService) {
+         const ta = document.getElementById('inp-notes');
+         ta.value = turndownService.turndown(visual.innerHTML);
+    }
+    window.saveDraft();
 };
 
 let revisionQueue = []; let currentRevIndex = 0;
