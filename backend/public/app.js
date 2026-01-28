@@ -301,30 +301,73 @@ window.togglePasswordVisibility = function(btn) {
     }
 };
 
-window.loginUser = async function() {
+let isRegisterMode = false;
+
+window.toggleAuthMode = function() {
+    isRegisterMode = !isRegisterMode;
+    const btn = document.getElementById('btn-login');
+    const toggleBtn = document.getElementById('btn-toggle-auth');
+    const nameGroup = document.getElementById('group-name');
+    const err = document.getElementById('login-error');
+    
+    if (isRegisterMode) {
+        btn.innerHTML = 'Sign Up <span class="iconify" data-icon="lucide:arrow-right"></span>';
+        toggleBtn.innerText = 'Already have an account? Sign In';
+        nameGroup.classList.remove('hidden');
+        document.getElementById('login-name').required = true;
+    } else {
+        btn.innerHTML = 'Sign In <span class="iconify" data-icon="lucide:arrow-right"></span>';
+        toggleBtn.innerText = 'Need an account? Sign Up';
+        nameGroup.classList.add('hidden');
+        document.getElementById('login-name').required = false;
+    }
+    err.classList.add('hidden');
+};
+
+window.handleAuth = async function() {
     const email = document.getElementById('login-email').value;
     const password = document.getElementById('login-pass').value;
+    const name = document.getElementById('login-name').value;
     const err = document.getElementById('login-error');
     const btn = document.getElementById('btn-login');
-    btn.disabled = true; btn.innerHTML = 'Authenticating...';
+    
+    btn.disabled = true; 
+    btn.innerHTML = isRegisterMode ? 'Creating Account...' : 'Authenticating...';
+    
+    const endpoint = isRegisterMode ? '/auth/register' : '/auth/login';
+    const payload = { email, password };
+    if (isRegisterMode) payload.display_name = name;
+
     try {
-        const res = await fetch(`${API_URL}/auth/login`, {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password })
+        const res = await fetch(`${API_URL}${endpoint}`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
         });
+        
+        const data = await res.json();
+        
         if (res.ok) { 
-            const data = await res.json(); 
             localStorage.setItem('token', data.token); 
-            
-            // Hide login & landing, show app
             document.getElementById('login-overlay').classList.add('hidden');
             document.getElementById('landing-page').classList.add('hidden');
-            
-            // Initialize App
             await initApp();
+            
+            // Reset form
+            document.getElementById('login-email').value = '';
+            document.getElementById('login-pass').value = '';
+            document.getElementById('login-name').value = '';
+            if (isRegisterMode) toggleAuthMode(); // Reset to login mode
+        } else {
+            err.innerText = `❌ ${data.error || 'Authentication failed'}`;
+            err.classList.remove('hidden');
         }
-        else err.classList.remove('hidden');
-    } catch (e) { alert("Connection Error"); }
-    finally { btn.disabled = false; btn.innerHTML = 'Sign In <span class="iconify" data-icon="lucide:arrow-right"></span>'; }
+    } catch (e) { 
+        err.innerText = "❌ Connection Error";
+        err.classList.remove('hidden'); 
+    }
+    finally { 
+        btn.disabled = false; 
+        btn.innerHTML = (isRegisterMode ? 'Sign Up' : 'Sign In') + ' <span class="iconify" data-icon="lucide:arrow-right"></span>'; 
+    }
 };
 
 window.logout = function() { 

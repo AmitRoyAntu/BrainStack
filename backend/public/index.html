@@ -565,7 +565,15 @@
                 <p>Your Second Brain is ready.</p>
             </div>
             
-            <form onsubmit="event.preventDefault(); loginUser();">
+            <form onsubmit="event.preventDefault(); handleAuth();">
+                <div class="login-input-group hidden" id="group-name">
+                    <label>Display Name</label>
+                    <div class="input-with-icon">
+                        <span class="iconify" data-icon="lucide:user"></span>
+                        <input type="text" id="login-name" placeholder="Your Name" />
+                    </div>
+                </div>
+
                 <div class="login-input-group">
                     <label>Email Address</label>
                     <div class="input-with-icon">
@@ -586,6 +594,10 @@
                 </div>
 
                 <button type="submit" class="btn-login" id="btn-login">Sign In <span class="iconify" data-icon="lucide:arrow-right"></span></button>
+                
+                <div style="text-align: center; margin-top: 15px;">
+                    <button type="button" class="btn-link" onclick="toggleAuthMode()" id="btn-toggle-auth" style="background:none; border:none; color:var(--primary); cursor:pointer; font-size:0.9rem;">Need an account? Sign Up</button>
+                </div>
             </form>
             
             <button onclick="hideLogin()" class="btn-back">← Back to Home</button>

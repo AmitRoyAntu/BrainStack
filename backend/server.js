@@ -53,6 +53,35 @@ const checkAuth = (req, res, next) => {
 // --- ROUTES ---
 
 // 0. AUTH
+app.post('/api/auth/register', async (req, res) => {
+    const { email, password, display_name } = req.body;
+    if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
+    
+    try {
+        // Check if user exists
+        const check = await pool.query('SELECT user_id FROM users WHERE email = $1', [email]);
+        if (check.rows.length > 0) return res.status(409).json({ error: 'User already exists' });
+
+        // Hash password
+        const salt = await bcrypt.genSalt(10);
+        const hash = await bcrypt.hash(password, salt);
+        
+        // Insert User
+        const result = await pool.query(
+            'INSERT INTO users (email, password_hash, display_name) VALUES ($1, $2, $3) RETURNING user_id, email, display_name',
+            [email, hash, display_name || 'New Learner']
+        );
+        const user = result.rows[0];
+
+        // Auto-Login
+        const token = jwt.sign({ id: user.user_id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+        res.json({ token, user: { name: user.display_name, email: user.email } });
+    } catch (err) {
+        console.error("Register Error:", err);
+        res.status(500).json({ error: 'Registration failed' });
+    }
+});
+
 app.post('/api/auth/login', async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
@@ -60,9 +89,10 @@ app.post('/api/auth/login', async (req, res) => {
         const result = await pool.query('SELECT * FROM users WHERE email ILIKE $1', [email.trim()]);
         const user = result.rows[0];
         
-        if (!user || String(password).trim() !== String(user.password_hash).trim()) {
-            return res.status(401).json({ error: 'Invalid credentials' });
-        }
+        if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+
+        const isValid = await bcrypt.compare(password, user.password_hash);
+        if (!isValid) return res.status(401).json({ error: 'Invalid credentials' });
         
         const token = jwt.sign({ id: user.user_id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, user: { name: user.display_name, email: user.email } });
