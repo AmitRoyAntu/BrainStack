@@ -18,27 +18,30 @@ app.use(express.urlencoded({ limit: '1mb', extended: true }));
 app.use(express.static('public'));
 
 // Database Connection
-const dbUrl = process.env.DATABASE_URL;
+let dbUrl = process.env.DATABASE_URL;
+
 if (dbUrl) {
     try {
-        const parsedUrl = new URL(dbUrl.replace('postgres://', 'http://')); // URL parser doesn't like postgres:// for host parsing
-        console.log(`🔌 Attempting connection to: ${parsedUrl.hostname}:${parsedUrl.port || '5432'}`);
-        if (parsedUrl.port === '6543' && !dbUrl.includes('pgbouncer=true')) {
-            console.warn("⚠️ Warning: Port 6543 detected but 'pgbouncer=true' missing from DATABASE_URL. This may cause connection issues with Supabase.");
+        // AUTO-FIX for Supabase Transaction Pooler (port 6543)
+        // This is critical: Transaction mode breaks without this flag or if prepared statements are used.
+        if (dbUrl.includes(':6543') && !dbUrl.includes('pgbouncer=true')) {
+            console.log("🔧 Auto-fixing connection string: Appending '?pgbouncer=true' for Supabase Pooler");
+            dbUrl += (dbUrl.includes('?') ? '&' : '?') + 'pgbouncer=true';
         }
+
+        const parsedUrl = new URL(dbUrl.replace('postgres://', 'http://')); 
+        console.log(`🔌 Database Host: ${parsedUrl.hostname}, Port: ${parsedUrl.port || '5432'}`);
     } catch (e) {
-        console.error("❌ Failed to parse DATABASE_URL for logging");
+        console.error("❌ DATABASE_URL parse error");
     }
 }
 
 const poolConfig = {
     connectionString: dbUrl,
-    connectionTimeoutMillis: 60000, // Extended timeout to handle cold starts
+    connectionTimeoutMillis: 10000, // Short timeout to fail fast and retry
     idleTimeoutMillis: 30000,
-    max: 20, // Increased max connections
+    max: 10,
     allowExitOnIdle: false,
-    keepAlive: true, // Prevent silent socket closure
-    keepAliveInitialDelayMillis: 0
 };
 
 // Enable SSL for non-local databases
@@ -49,20 +52,30 @@ if (dbUrl && !dbUrl.includes('localhost') && process.env.DB_SSL !== 'false') {
 const pool = new Pool(poolConfig);
 
 pool.on('error', (err) => {
-    console.error('🚨 Unexpected error on idle client:', err);
+    console.error('🚨 Idle client error:', err.message);
 });
 
-pool.query('SELECT NOW()', (err, res) => {
-    if (err) {
-        console.error("❌ Database Connection Failed!");
-        console.error("Error Name:", err.name);
-        console.error("Error Message:", err.message);
-        console.error("Error Code:", err.code);
-        if (err.stack) console.error("Stack Trace:", err.stack);
-    } else {
-        console.log("✅ Database Connected Successfully at", res.rows[0].now);
+// Initial Connection Test with Retry
+async function connectWithRetry(retries = 5) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const res = await pool.query('SELECT NOW()');
+            console.log("✅ Database Connected Successfully at", res.rows[0].now);
+            return true;
+        } catch (err) {
+            console.error(`❌ Connection Attempt ${i + 1} Failed:`, err.message);
+            if (i < retries - 1) {
+                console.log(`Retrying in 2 seconds...`);
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            } else {
+                console.error("💀 All connection attempts failed. Check your DATABASE_URL.");
+            }
+        }
     }
-});
+    return false;
+}
+
+connectWithRetry();
 
 app.get('/api/health', async (req, res) => {
     try {
@@ -118,14 +131,26 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 app.post('/api/auth/login', async (req, res) => {
+    const start = Date.now();
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
+    
     try {
-        const result = await pool.query('SELECT * FROM users WHERE email ILIKE $1', [email.trim()]);
-        const user = result.rows[0];
+        console.log(`🔑 Login attempt for: ${email}`);
         
-        if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+        // 1. Database Query
+        const dbStart = Date.now();
+        const result = await pool.query('SELECT user_id, email, password_hash, display_name FROM users WHERE email ILIKE $1', [email.trim()]);
+        console.log(`   ↳ DB Query took: ${Date.now() - dbStart}ms`);
+        
+        const user = result.rows[0];
+        if (!user) {
+            console.log(`   ❌ User not found`);
+            return res.status(401).json({ error: 'Invalid credentials' });
+        }
 
+        // 2. Password Comparison
+        const cryptStart = Date.now();
         let isValid = false;
         try {
             isValid = await bcrypt.compare(password, user.password_hash);
@@ -137,13 +162,18 @@ app.post('/api/auth/login', async (req, res) => {
                 const salt = await bcrypt.genSalt(10);
                 const hash = await bcrypt.hash(password, salt);
                 await pool.query('UPDATE users SET password_hash = $1 WHERE user_id = $2', [hash, user.user_id]);
-                console.log(`🔒 Migrated legacy password for user: ${email}`);
+                console.log(`   🔒 Migrated legacy password`);
             }
         }
+        console.log(`   ↳ Bcrypt took: ${Date.now() - cryptStart}ms`);
 
-        if (!isValid) return res.status(401).json({ error: 'Invalid credentials' });
+        if (!isValid) {
+             console.log(`   ❌ Invalid password`);
+             return res.status(401).json({ error: 'Invalid credentials' });
+        }
         
         const token = jwt.sign({ id: user.user_id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
+        console.log(`✅ Login successful in ${Date.now() - start}ms`);
         res.json({ token, user: { name: user.display_name, email: user.email } });
     } catch (err) { 
         console.error("Login Error:", err);
