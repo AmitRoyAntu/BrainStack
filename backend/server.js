@@ -18,16 +18,48 @@ app.use(express.urlencoded({ limit: '1mb', extended: true }));
 app.use(express.static('public'));
 
 // Database Connection
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-    connectionTimeoutMillis: 30000,
-    query_timeout: 30000
+const dbUrl = process.env.DATABASE_URL;
+if (dbUrl) {
+    try {
+        const parsedUrl = new URL(dbUrl.replace('postgres://', 'http://')); // URL parser doesn't like postgres:// for host parsing
+        console.log(`🔌 Attempting connection to: ${parsedUrl.hostname}:${parsedUrl.port || '5432'}`);
+        if (parsedUrl.port === '6543' && !dbUrl.includes('pgbouncer=true')) {
+            console.warn("⚠️ Warning: Port 6543 detected but 'pgbouncer=true' missing from DATABASE_URL. This may cause connection issues with Supabase.");
+        }
+    } catch (e) {
+        console.error("❌ Failed to parse DATABASE_URL for logging");
+    }
+}
+
+const poolConfig = {
+    connectionString: dbUrl,
+    connectionTimeoutMillis: 10000,
+    idleTimeoutMillis: 30000,
+    max: 10,
+    allowExitOnIdle: false
+};
+
+// Enable SSL for non-local databases
+if (dbUrl && !dbUrl.includes('localhost') && process.env.DB_SSL !== 'false') {
+    poolConfig.ssl = { rejectUnauthorized: false };
+}
+
+const pool = new Pool(poolConfig);
+
+pool.on('error', (err) => {
+    console.error('🚨 Unexpected error on idle client:', err);
 });
 
 pool.query('SELECT NOW()', (err, res) => {
-    if (err) console.error("❌ Database Connection Failed:", err.message);
-    else console.log("✅ Database Connected Successfully");
+    if (err) {
+        console.error("❌ Database Connection Failed!");
+        console.error("Error Name:", err.name);
+        console.error("Error Message:", err.message);
+        console.error("Error Code:", err.code);
+        if (err.stack) console.error("Stack Trace:", err.stack);
+    } else {
+        console.log("✅ Database Connected Successfully at", res.rows[0].now);
+    }
 });
 
 app.get('/api/health', async (req, res) => {
