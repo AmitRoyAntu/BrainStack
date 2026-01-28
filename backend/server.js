@@ -38,10 +38,12 @@ if (dbUrl) {
 
 const poolConfig = {
     connectionString: dbUrl,
-    connectionTimeoutMillis: 10000, // Short timeout to fail fast and retry
-    idleTimeoutMillis: 30000,
-    max: 10,
-    allowExitOnIdle: false,
+    // STATELESS MODE: Critical for Supabase Transaction Pooler (port 6543)
+    // We disconnect immediately (0ms) to ensure we never hold a stale connection.
+    idleTimeoutMillis: 0, 
+    connectionTimeoutMillis: 10000, // Fail fast (10s) instead of hanging
+    max: 5, // Lower concurrency is better for Transaction mode
+    allowExitOnIdle: true,
 };
 
 // Enable SSL for non-local databases
