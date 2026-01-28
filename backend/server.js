@@ -33,10 +33,12 @@ if (dbUrl) {
 
 const poolConfig = {
     connectionString: dbUrl,
-    connectionTimeoutMillis: 10000,
+    connectionTimeoutMillis: 60000, // Extended timeout to handle cold starts
     idleTimeoutMillis: 30000,
-    max: 10,
-    allowExitOnIdle: false
+    max: 20, // Increased max connections
+    allowExitOnIdle: false,
+    keepAlive: true, // Prevent silent socket closure
+    keepAliveInitialDelayMillis: 0
 };
 
 // Enable SSL for non-local databases
