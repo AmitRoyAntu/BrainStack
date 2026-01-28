@@ -4,6 +4,7 @@ const cors = require('cors');
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 const Groq = require('groq-sdk');
+const bcrypt = require('bcrypt');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -91,7 +92,21 @@ app.post('/api/auth/login', async (req, res) => {
         
         if (!user) return res.status(401).json({ error: 'Invalid credentials' });
 
-        const isValid = await bcrypt.compare(password, user.password_hash);
+        let isValid = false;
+        try {
+            isValid = await bcrypt.compare(password, user.password_hash);
+        } catch (bcryptErr) {
+            // Handle legacy plain-text passwords
+            if (String(password).trim() === String(user.password_hash).trim()) {
+                isValid = true;
+                // Auto-migrate to secure hash
+                const salt = await bcrypt.genSalt(10);
+                const hash = await bcrypt.hash(password, salt);
+                await pool.query('UPDATE users SET password_hash = $1 WHERE user_id = $2', [hash, user.user_id]);
+                console.log(`🔒 Migrated legacy password for user: ${email}`);
+            }
+        }
+
         if (!isValid) return res.status(401).json({ error: 'Invalid credentials' });
         
         const token = jwt.sign({ id: user.user_id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
