@@ -66,7 +66,10 @@ app.post('/api/auth/login', async (req, res) => {
         
         const token = jwt.sign({ id: user.user_id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
         res.json({ token, user: { name: user.display_name, email: user.email } });
-    } catch (err) { res.status(500).json({ error: 'Login error' }); }
+    } catch (err) { 
+        console.error("Login Error:", err);
+        res.status(500).json({ error: 'Login error' }); 
+    }
 });
 
 // 1. ENTRIES (Paginated)
