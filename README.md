@@ -29,30 +29,47 @@ BrainStack is a professional, full-stack personal knowledge management system de
 
 ## ⚙️ Local Setup
 
-1. **Clone the repository**
-2. **Navigate to the `backend/` folder:**
-   ```bash
-   cd backend
-   ```
-3. **Install dependencies:**
-   ```bash
-   npm install
-   ```
-4. **Configure Environment Variables:**
-   Create a `.env` file in the `backend/` folder and add:
-   ```text
-   DATABASE_URL=your_postgresql_connection_string
-   GROQ_API_KEY=your_groq_api_key
-   JWT_SECRET=your_secret_random_string
-   PORT=3000
-   ```
-5. **Set up the Database:**
-   Run the SQL code in `backend/database_schema.sql` in your PostgreSQL editor (e.g., Supabase SQL Editor). This will create all necessary tables and **performance indexes**.
-6. **Start the server:**
-   ```bash
-   node server.js
-   ```
-7. **Open in browser:** `http://localhost:3000`
+### 1. Prerequisites
+- **Node.js** (v18+ recommended)
+- **PostgreSQL** database
+
+### 2. Clone the repository
+```bash
+git clone https://github.com/AmitRoyAntu/BrainStack.git
+cd BrainStack
+```
+
+### 3. Install dependencies
+Navigate to the `backend/` folder and install packages:
+```bash
+cd backend
+npm install
+```
+
+### 4. Configure Environment Variables
+Create a `.env` file in the `backend/` folder:
+```text
+DATABASE_URL=postgres://user:password@localhost:5432/brainstack
+GROQ_API_KEY=your_groq_api_key
+JWT_SECRET=your_secret_random_string
+PORT=3000
+```
+*Get your API key from [Groq Console](https://console.groq.com/).*
+
+### 5. Set up the Database
+Run the SQL code in `backend/database_schema.sql` in your PostgreSQL editor (e.g., pgAdmin, psql, or Supabase). This will create all necessary tables and **performance indexes**.
+
+### 6. Start the server
+```bash
+npm start
+```
+For development with auto-reload:
+```bash
+npm run dev
+```
+
+### 7. Open in browser
+Go to [http://localhost:3000](http://localhost:3000)
 
 ---
 
