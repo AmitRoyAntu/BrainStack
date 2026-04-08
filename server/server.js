@@ -5,6 +5,7 @@ const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 const Groq = require('groq-sdk');
 const bcrypt = require('bcrypt');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -15,7 +16,7 @@ const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ limit: '1mb', extended: true }));
-app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, '../client')));
 
 // Database Connection
 let dbUrl = process.env.DATABASE_URL;
@@ -133,26 +134,21 @@ app.post('/api/auth/register', async (req, res) => {
 });
 
 app.post('/api/auth/login', async (req, res) => {
-    const start = Date.now();
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: 'Missing fields' });
     
     try {
-        console.log(`🔑 Login attempt for: ${email}`);
+        console.log(`🔑 Login attempt: ${email}`);
         
         // 1. Database Query
-        const dbStart = Date.now();
         const result = await pool.query('SELECT user_id, email, password_hash, display_name FROM users WHERE email ILIKE $1', [email.trim()]);
-        console.log(`   ↳ DB Query took: ${Date.now() - dbStart}ms`);
         
         const user = result.rows[0];
         if (!user) {
-            console.log(`   ❌ User not found`);
             return res.status(401).json({ error: 'Invalid credentials' });
         }
 
         // 2. Password Comparison
-        const cryptStart = Date.now();
         let isValid = false;
         try {
             isValid = await bcrypt.compare(password, user.password_hash);
@@ -164,18 +160,16 @@ app.post('/api/auth/login', async (req, res) => {
                 const salt = await bcrypt.genSalt(10);
                 const hash = await bcrypt.hash(password, salt);
                 await pool.query('UPDATE users SET password_hash = $1 WHERE user_id = $2', [hash, user.user_id]);
-                console.log(`   🔒 Migrated legacy password`);
+                console.log(`   🔒 Migrated legacy password for ${email}`);
             }
         }
-        console.log(`   ↳ Bcrypt took: ${Date.now() - cryptStart}ms`);
 
         if (!isValid) {
-             console.log(`   ❌ Invalid password`);
              return res.status(401).json({ error: 'Invalid credentials' });
         }
         
         const token = jwt.sign({ id: user.user_id, email: user.email }, JWT_SECRET, { expiresIn: '7d' });
-        console.log(`✅ Login successful in ${Date.now() - start}ms`);
+        console.log(`✅ Login successful: ${email}`);
         res.json({ token, user: { name: user.display_name, email: user.email } });
     } catch (err) { 
         console.error("Login Error:", err);
@@ -508,6 +502,6 @@ app.put('/api/profile', checkAuth, async (req, res) => {
 });
 
 // 8. SPA ROUTING
-app.get('*', (req, res) => res.sendFile(__dirname + '/public/index.html'));
+app.get('*', (req, res) => res.sendFile(path.join(__dirname, '../client/index.html')));
 
 app.listen(PORT, () => console.log(`🚀 Server running on http://localhost:${PORT}`));

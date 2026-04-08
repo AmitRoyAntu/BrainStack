@@ -30,45 +30,57 @@ BrainStack is a professional, full-stack personal knowledge management system de
 ## ⚙️ Local Setup
 
 ### 1. Prerequisites
+
 - **Node.js** (v18+ recommended)
 - **PostgreSQL** database
 
 ### 2. Clone the repository
+
 ```bash
 git clone https://github.com/AmitRoyAntu/BrainStack.git
 cd BrainStack
 ```
 
 ### 3. Install dependencies
-Navigate to the `backend/` folder and install packages:
+
+Navigate to the `server/` folder and install packages:
+
 ```bash
-cd backend
+cd server
 npm install
 ```
 
 ### 4. Configure Environment Variables
-Create a `.env` file in the `backend/` folder:
+
+Create a `.env` file in the `server/` folder:
+
 ```text
 DATABASE_URL=postgres://user:password@localhost:5432/brainstack
 GROQ_API_KEY=your_groq_api_key
 JWT_SECRET=your_secret_random_string
 PORT=3000
 ```
+
 *Get your API key from [Groq Console](https://console.groq.com/).*
 
 ### 5. Set up the Database
-Run the SQL code in `backend/database_schema.sql` in your PostgreSQL editor (e.g., pgAdmin, psql, or Supabase). This will create all necessary tables and **performance indexes**.
+
+Run the SQL code in `server/database_schema.sql` in your PostgreSQL editor (e.g., pgAdmin, psql, or Supabase). This will create all necessary tables and **performance indexes**.
 
 ### 6. Start the server
+
 ```bash
 npm start
 ```
+
 For development with auto-reload:
+
 ```bash
 npm run dev
 ```
 
 ### 7. Open in browser
+
 Go to [http://localhost:3000](http://localhost:3000)
 
 ---
@@ -86,9 +98,9 @@ Go to [http://localhost:3000](http://localhost:3000)
 
 ## 🚀 Deployment (Render)
 
-1. **Root Directory:** Set to `backend` (or leave empty if the repo is just the backend).
-2. **Build Command:** `npm install`
-3. **Start Command:** `node server.js`
+1. **Root Directory:** Keep as root (the server will serve the `client/` folder).
+2. **Build Command:** `cd server && npm install`
+3. **Start Command:** `cd server && node server.js`
 4. **Environment Variables:** Add `DATABASE_URL`, `GROQ_API_KEY`, and `JWT_SECRET` in the Render dashboard settings.
 
 ---
